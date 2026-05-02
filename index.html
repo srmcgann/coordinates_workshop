@@ -284,12 +284,27 @@
           value: 0
         } },
       ]
-      var gridShader = await Coordinates.BasicShader(renderer, shaderOptions)
+      var flatShader = await Coordinates.BasicShader(renderer, shaderOptions)
 
       var shapes = []
+
+      var geoOptions = {
+        shapeType: 'dodecahedron',
+        name: 'background',
+        sphereize: 1,
+        subs: 2,
+        color: 0x333333,
+        size: 5e3,
+        colorMix: 1,
+      }
+      await Coordinates.LoadGeometry(renderer, geoOptions).then(async (geometry) => {
+        shapes.push(geometry)
+        await flatShader.ConnectGeometry(geometry)
+      })
+
       var cl = 8
       var rw = 8
-      var sp = 2
+      var sp = 20
       var pointArray = Array(cl*rw).fill().map((v, i) => {
         x = ((i%cl)-cl/2 + .5) * sp
         y = 0
@@ -300,16 +315,17 @@
         shapeType: 'obj',
         url: 'https://srmcgann.github.io/coordinates_workshop/grid.obj',
         name: 'world grid',
-        alpha: .9,
+        alpha: .2,
         color: 0x888888,
-        colorMix: 1,
+        colorMix: .2,
       }
       await Coordinates.LoadGeometry(renderer, geoOptions).then(async (geometry) => {
         Coordinates.ShapeFromArray(geometry, pointArray).then(async res => {
           shapes.push(res)
-          await gridShader.ConnectGeometry(res)
+          await flatShader.ConnectGeometry(res)
         })
       })
+      
 
       if(1) Coordinates.LoadFPSControls(renderer, {
         flyMode: true,
@@ -347,6 +363,7 @@
       window.onmouseup = () => clickReady = true
 
       renderer.z = 10
+      renderer.y = -10
       window.Draw = () => {
 
         c = canvasTexture.c
@@ -364,6 +381,9 @@
         shapes.map((shape, sIdx) => {
           switch(shape.name){
             case 'world grid':
+              renderer.Draw(shape)
+            break
+            case 'background':
               renderer.Draw(shape)
             break
             default:
