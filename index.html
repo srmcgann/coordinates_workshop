@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Coordinates boilerplate example</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,200..900;1,200..900&display=swap');
+      body, html{
+        background: #000;
+        margin: 0;
+        min-height: 100vh;
+        overflow: hidden;
+        font-family: 'Source Sans 3';
+        color: #fff;
+        font-size: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <script type="module">
+    
+      var rsz
+      var displayProperties = {
+        width: 1920,
+        height: 1080,
+        orientation: 'landscape',
+      }
+
+      import * as Coordinates from
+      "https://srmcgann.github.io/Coordinates/coordinates.min.js"
+
+      var rendererOptions = {
+        ambientLight: .5, margin: 0, clearColor: 0x404040,
+        fov: 1e3, width: 1920, height: 1080,
+      }
+      var renderer = await Coordinates.Renderer(rendererOptions)
+      
+      rendererOptions.attachToBody = true
+      rendererOptions.context = {
+        mode: '2d',
+        width: renderer.c.width,
+        height: renderer.c.height,
+        options: {
+          willReadFrequently: true,
+        }
+      }
+      var canvasTexture = await Coordinates.Renderer(rendererOptions)
+      var c = canvasTexture.c
+      var ctx = canvasTexture.ctx
+      var w = canvasTexture.c.width
+      var h = canvasTexture.c.height
+      var fs, mx, my, hovering = false
+      
+      window.onresize = rsz = e => {
+        var w, h
+        w = displayProperties.width  = document.body.clientWidth
+        h = displayProperties.height = document.body.clientHeight
+        displayProperties.orientation = w/h>= 1 ?
+                                'landscape' : 'portrait'
+        Coordinates.ResizeRenderer(renderer, w, h)
+        Coordinates.ResizeRenderer(canvasTexture, w, h)
+        renderer.c.style.boxSizing = 'border-box'
+      }
+      rsz()
+      
+      var refTexture = 'https://srmcgann.github.io/Coordinates/resources/million_particle_grid_equirectangular_po2.png'
+      
+      var S = Math.sin
+      var C = Math.cos
+      var Rn = Math.random
+      
+      var x, y, z, p, q, d
+      
+      Coordinates.AnimationLoop(renderer, 'Draw')
+      
+      const PushMenuItem = (parent, name, script='') => {
+        var newItem = {
+          name, x: 0, y: 0, width: 0, height: 0,
+          subsShown: false, items: [],
+          script: `console.log('${name}')`,
+        }
+        ;(name=='root' ? parent : parent.items).push(newItem)
+        return newItem
+      }
+      
+      
+      var menuPadding = 8
+      var menus = []
+      var item, root, menubarWidth, width
+      
+      const FetchMenuItemByName = name => {
+        var ret, found=false
+        const recurse = item => {
+          if(item.name == name) return item
+          if(!found){
+            item.items.forEach(item => {
+              var test
+              if(!found && (test = recurse(item))) {
+                ret = test
+                found = true
+              }
+            })
+          }
+        }
+        root.items.forEach(item => {
+          var test
+          if(!found && (test = recurse(item))) {
+            ret = test
+            found = true
+          }
+        })
+        return ret
+      }
+      
+      const InitMenus = () => {
+        root = PushMenuItem(menus, 'root')
+        PushMenuItem(root, 'File')
+        PushMenuItem(root, 'Edit')
+        PushMenuItem(root, 'Config')
+        PushMenuItem(root, 'Help')
+        PushMenuItem(root, 'About')
+        
+        for(var i = 0; i < 8; i++){
+          root.items.forEach(item => {
+            PushMenuItem(item, `sub ${i+1}`)
+          })
+        }
+        var el = FetchMenuItemByName('Config')
+        console.log(el)
+        el.items.map((sub, sIdx) => {
+          for(var i = 0; i < 8; i++){
+            PushMenuItem(sub, `sub ${sIdx+1}.${i+1}`)
+          }
+        })
+
+        var el = FetchMenuItemByName('sub 5.3')
+        for(var i = 0; i < 8; i++){
+          PushMenuItem(el, `sub 5.3.${i+1}`)
+        }
+
+        const recurse = (item, depth=0) => {
+          if(depth){
+            item.name += item.items.length ? ' →' : ''
+          }
+          item.items.map(sub => recurse(sub, depth+1))
+        }
+        root.items.forEach(item=>recurse(item))
+
+        menubarWidth = 0
+        ctx.font = (fs=24) + 'px "Source Sans 3"'
+        root.items.forEach(menu => {
+          menu.textWidth = ctx.measureText(menu.name).width
+          width = menu.textWidth + menuPadding * 4
+          menubarWidth += width + menuPadding * 4
+        })
+      }
+      InitMenus()
+      
+
+      var shaderOptions = [
+        {lighting: {type: 'ambientLight', value: .5}},
+        { uniform: {
+          type: 'phong',
+          value: .25
+        } },
+        { uniform: {
+          type: 'reflection',
+          enabled: false,
+          map: refTexture,
+          value: .1
+        } },
+      ]
+      var shader = await Coordinates.BasicShader(renderer, shaderOptions)
+
+      var shapes = []
+      var geoOptions = {
+        shapeType: 'obj',
+        name: 'world grid',
+        size: 5,
+        color: 0xffffff,
+      }
+      await Coordinates.LoadGeometry(renderer, geoOptions).then(async (geometry) => {
+        shapes.push(geometry)
+        await shader.ConnectGeometry(geometry)
+      })
+
+      if(0) Coordinates.LoadFPSControls(renderer, {
+        flyMode: true,
+        crossharSel: 2,
+        crosshairSize: .5,
+      })
+
+      const Hover = (menu, depth=0) => {
+        var hover, hoverMargin = menuPadding * 8
+        var val = menu.showSubs && !!menu.items.filter(sub => Hover(sub, depth+1)).length
+        if(depth){
+        hover = mx > menu.x - hoverMargin &&
+                mx < menu.x + menu.width + hoverMargin &&
+                my > menu.y - hoverMargin &&
+                my < menu.y + menu.height +hoverMargin
+        }else{
+          hover = mx > menu.x && mx < menu.x + menu.width &&
+                  my > menu.y && my < menu.y + menu.height
+        }
+        
+        var ret = hover || val
+        if(ret) hovering = true
+        return ret
+      }
+
+      const CloseAllSubMenus = menus => {
+        (menus?.subs ? menus.subs : menus).map(menu => {
+          menu.showSubs = false
+          CloseAllSubMenus(menu.subs)
+        })
+      }
+
+      var clickReady = true
+      window.onmouseup = () => clickReady = true
+
+      window.Draw = () => {
+
+        c = canvasTexture.c
+        ctx = canvasTexture.ctx
+        w = canvasTexture.c.width
+        h = canvasTexture.c.height
+        
+        mx = renderer.mouseX
+        my = renderer.mouseY
+        
+        var t = renderer.frameCount / 60
+        renderer.Clear()
+        ctx.clearRect(0,0,w, h)
+        renderer.z = 10
+        
+        shapes.map((shape, sIdx) => {
+          switch(shape.name){
+            case 'world grid':
+              renderer.Draw(shape)
+            break
+            default:
+              renderer.Draw(shape)
+            break
+          }
+        })
+
+
+        // main menu
+        
+        
+        var height = fs * 1.2 + menuPadding
+        ctx.font = (fs=24) + 'px "Source Sans 3"'
+        hovering = false
+        const DrawMenu = (menu, depth=0, offsetX=0, offsetY=0, parentName='') => {
+          if(depth){
+            menu.items.map((item, mIdx) => {
+
+              item.textWidth = ctx.measureText(item.name).width
+              var width = item.textWidth + menuPadding * 4
+              item.width = width - menuPadding
+              item.height = height
+
+              var vy = depth ? (1+mIdx) * height : 0
+              
+              ctx.fillStyle = '#333'
+              if(depth > 1){
+                ctx.beginPath()
+                ctx.roundRect(menu.x - menuPadding/2 + offsetX,
+                             menu.y + vy - 2 + offsetY,
+                             width - menuPadding,
+                             (fs*1.25+menuPadding)*menuRows, [8])
+                ctx.fill()
+              }else{
+                ctx.fillRect(menu.x - menuPadding/2 + offsetX,
+                             menu.y + vy - 2 + offsetY,
+                             width - menuPadding,
+                             (fs*1.25+menuPadding)*menuRows)
+              }
+
+              menu.items[mIdx].x = menu.x + menuPadding/2 + offsetX
+              menu.items[mIdx].y = menu.y + vy - 2 + offsetY
+
+              if(Hover(item)){
+                menu.items.map(item => item.showSubs = false)
+                item.showSubs = true
+                ctx.fillStyle = '#555'
+                ctx.beginPath()
+                ctx.roundRect(menu.x + offsetX, menu.y + offsetY + vy, width-menuPadding*2, height-menuPadding/2, [8])
+                ctx.fill()
+                if(renderer.mouseButton == 1 && clickReady &&
+                   !item.items.length) {
+                   eval(item.script)
+                  clickReady = false
+                //  item.showSubs = !item.showSubs
+                //  console.log(item.showSubs)
+                }
+                DrawMenu(item, depth+1, width-menuPadding*2, -height+2, item.name)
+              }else{
+                item.showSubs = false
+              }
+              
+              ctx.fillStyle = '#000'
+              ctx.fillText(item.name,
+                   menu.x + offsetX + width/2 - menuPadding + 3,
+                   menu.y + offsetY -menuPadding/4 + fs +
+                     menuPadding/2 - fs/20 + 2 + vy)
+              ctx.fillStyle = '#fff'
+              ctx.fillText(item.name, menu.x + offsetX + width/2 - menuPadding,
+                            menu.y + offsetY -menuPadding/4 +
+                              fs + menuPadding/2 - fs/20 + vy)
+            })
+          }else{
+            var posX = 0
+            menu[0].items.map((item, mIdx) => {
+              item.textWidth = ctx.measureText(item.name).width
+              var width = item.textWidth + menuPadding * 4
+              item.width = width - menuPadding * 2
+              item.height = height
+              var vy = depth ? (1+mIdx) * height : 0
+              item.x = posX + menuPadding/2
+              item.y = menuPadding/3
+              posX += ctx.measureText(item.name).width + menuPadding * 2.5
+              if(Hover(item)){
+                menu[0].items.map(item => item.showSubs = false)
+                item.showSubs = true
+                ctx.fillStyle = '#555'
+                ctx.beginPath()
+                ctx.roundRect(item.x + offsetX, item.y + offsetY + vy, width-menuPadding*2, height-menuPadding/2, [8])
+                ctx.fill()
+                DrawMenu(item, depth+1, 0, 0, item.name)
+              }else{
+                item.showSubs = false
+              }
+
+              ctx.fillStyle = '#000'
+              ctx.fillText(item.name,
+                   item.x + offsetX + width/2 - menuPadding + 3,
+                   item.y + offsetY -menuPadding/4 + fs +
+                     menuPadding/2 - fs/20 + 2 + vy)
+              ctx.fillStyle = '#fff'
+              ctx.fillText(item.name, item.x + offsetX + width/2 - menuPadding,
+                            item.y + offsetY -menuPadding/4 +
+                              fs + menuPadding/2 - fs/20 + vy)
+            })
+          }
+        }
+        
+        var menuRows = 1 + (menubarWidth/Math.max(menubarWidth, w) | 0)
+        ctx.fillStyle = '#333'
+        ctx.fillRect(0, 0, w, (fs*1.25+menuPadding)*menuRows)
+        ctx.textAlign = 'center'
+        DrawMenu(menus)
+      }
+
+    </script>
+  </body>
+</html>
