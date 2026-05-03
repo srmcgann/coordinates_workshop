@@ -30,7 +30,7 @@
 
       var rendererOptions = {
         ambientLight: .5, margin: 0, clearColor: 0x404040,
-        fov: 1e3, width: 1920, height: 1080,
+        fov: 1600, width: 1920, height: 1080,
       }
       var renderer = await Coordinates.Renderer(rendererOptions)
       
@@ -297,13 +297,15 @@
         size: 5e3,
         colorMix: 1,
       }
-      await Coordinates.LoadGeometry(renderer, geoOptions).then(async (geometry) => {
+      if(0)await Coordinates.LoadGeometry(renderer, geoOptions).then(async (geometry) => {
         shapes.push(geometry)
         await flatShader.ConnectGeometry(geometry)
       })
 
-      var cl = 8
-      var rw = 8
+
+
+      var cl = 3
+      var rw = 3  
       var sp = 20
       var pointArray = Array(cl*rw).fill().map((v, i) => {
         x = ((i%cl)-cl/2 + .5) * sp
@@ -315,27 +317,52 @@
         shapeType: 'obj',
         url: 'https://srmcgann.github.io/coordinates_workshop/grid.obj',
         name: 'world grid',
-        alpha: .2,
+        alpha: 1,
         color: 0x888888,
-        colorMix: .2,
+        colorMix: .5,
+        scaleY: .2,
       }
       await Coordinates.LoadGeometry(renderer, geoOptions).then(async (geometry) => {
         Coordinates.ShapeFromArray(geometry, pointArray).then(async res => {
+          var colors = []
+          var sd = res.vstate.length / 3 * 4
+          Array(sd).fill().map((v, i) => {
+            var rgb   = Coordinates.HSVToRGB(360/sd*i, 1, 1)
+            var red   = 1
+            var green = 1
+            var blue  = 1
+            colors.push(red, green, blue, 1)
+          })
+          
+          var shaderOptions = [
+            {lighting: {type: 'ambientLight', value: .5}},
+            { uniform: {
+              type: 'phong',
+              value: 0
+            } },
+            { uniform: {
+              type: 'fog',
+              color: 0x333333,
+              value: 0, //5,
+            } }
+          ]
+          var gridShader = await Coordinates.BasicShader(renderer, shaderOptions)
           shapes.push(res)
-          await flatShader.ConnectGeometry(res)
+          await gridShader.ConnectGeometry(res)
         })
       })
       
 
       if(1) Coordinates.LoadFPSControls(renderer, {
         flyMode: true,
-        mSpeed: .25,
+        mSpeed: .5,
+        showCrosshair: false,
         crossharSel: 2,
         crosshairSize: .5,
       })
 
       const Hover = (menu, depth=0) => {
-        var hover, hoverMargin = menuPadding * 8
+        var hover, hoverMargin = menuPadding * 4
         var val = menu.showSubs && !!menu.items.filter(sub => Hover(sub, depth+1)).length
         if(depth){
         hover = mx > menu.x - hoverMargin &&
@@ -363,7 +390,7 @@
       window.onmouseup = () => clickReady = true
 
       renderer.z = 10
-      renderer.y = -10
+      renderer.y = -3
       window.Draw = () => {
 
         c = canvasTexture.c
@@ -381,6 +408,20 @@
         shapes.map((shape, sIdx) => {
           switch(shape.name){
             case 'world grid':
+              shape.shapeData.map((subShape, sIdx) => {
+                if(renderer.x + subShape.wx > sp * (cl-1)){
+                  subShape.x -= sp * cl
+                }
+                if(renderer.x + subShape.wx < -sp * (cl-1)){
+                  subShape.x += sp * cl
+                }
+                if(renderer.z + subShape.wz > sp * (rw-1)){
+                  subShape.z -= sp * rw
+                }
+                if(renderer.z + subShape.wz < -sp * (rw-1)){
+                  subShape.z += sp * rw
+                }
+              })
               renderer.Draw(shape)
             break
             case 'background':
