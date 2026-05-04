@@ -1,3 +1,19 @@
+<!--
+  to do
+  * viewport move tool
+  * axis color coding lines in scene
+  * sync grid-size to shape units
+  * toolbar
+    * move
+    * scale
+    * rotate
+  * menu
+    * apply transformations / rotations / scale
+    * mode switching (object/edit)
+    * File
+      * add / load / delete shapes
+      * export scene / shape
+-->
 <!DOCTYPE html>
 <html>
   <head>
@@ -26,14 +42,14 @@
       }
 
       import * as Coordinates from
-      "https://srmcgann.github.io/Coordinates/coordinates.min.js"
+      "https://cantelope42.github.io/temppp/coordinates.js"
 
       var rendererOptions = {
         ambientLight: .5, margin: 0, clearColor: 0x404040,
-        fov: 1600, width: 1920, height: 1080,
+        fov: 1100, width: 1920, height: 1080,
       }
       var renderer = await Coordinates.Renderer(rendererOptions)
-      
+
       rendererOptions.attachToBody = true
       rendererOptions.context = {
         mode: '2d',
@@ -49,44 +65,84 @@
       var w = canvasTexture.c.width
       var h = canvasTexture.c.height
       var fs, mx, my, hovering = false
-      
+      var tempRendererProps, menuRows=1
+      var menuBarHeight, omx, omy
+      var targYaw = renderer.yaw
+      var targX = 0, targY = 0, targZ = 0
+      var targPitch = renderer.pitch
+      var homing = 4
+      var gyroHoming = 4
+      var zoomHoming = 32
+      var moveHoming = 32
+      var orientationInProgress = false
+      var zoomInProgress = false
+      var moveInProgress = false
+      var axisAligned = ''
+      var camFocusX = 0
+      var camFocusY = 0
+      var camFocusZ = 0
+
       window.onresize = rsz = e => {
         var w, h
         w = displayProperties.width  = document.body.clientWidth
         h = displayProperties.height = document.body.clientHeight
         displayProperties.orientation = w/h>= 1 ?
-                                'landscape' : 'portrait'
+          'landscape' : 'portrait'
         Coordinates.ResizeRenderer(renderer, w, h)
         Coordinates.ResizeRenderer(canvasTexture, w, h)
         renderer.c.style.boxSizing = 'border-box'
       }
       rsz()
-      
+
       var refTexture = 'https://srmcgann.github.io/Coordinates/resources/million_particle_grid_equirectangular_po2.png'
-      
+
       var S = Math.sin
       var C = Math.cos
       var Rn = Math.random
-      
+
       var x, y, z, p, q, d
-      
+
       Coordinates.AnimationLoop(renderer, 'Draw')
-      
+
       const PushMenuItem = (parent, name, script='') => {
+        if(!script) script = `console.log('${name}')`
         var newItem = {
           name, x: 0, y: 0, width: 0, height: 0,
           subsShown: false, items: [],
-          script: `console.log('${name}')`,
+          script,
         }
         ;(name=='root' ? parent : parent.items).push(newItem)
         return newItem
       }
-      
-      
+
+      var mouseUp = false
+      window.addEventListener('mousewheel', e => {
+        if(e.wheelDelta > 0){
+          targZ /= 1.1
+        }else{
+          targZ *= 1.1
+        }
+      })
+
+      window.addEventListener('mouseup', e => {
+        omx=mx
+        omy=my
+        setTimeout(()=>{clickReady = true}, 0)
+        mouseUp = true
+        orientationInProgress = false
+        zoomInProgress = false
+        moveInProgress = false
+      })
+
+      window.addEventListener('mousemove', e => {
+        mouseUp = false
+      })
+
       var menuPadding = 8
       var menus = []
       var item, root, menubarWidth, width
-      
+      var menubarHeight = 24 * 1.2 + menuPadding
+
       const FetchMenuItemByName = name => {
         var ret, found=false
         const recurse = item => {
@@ -110,7 +166,25 @@
         })
         return ret
       }
-      
+
+      const CloseAllMenus = () => {
+        var ret, found=false
+        const recurse = item => {
+          item.showSubs = false
+          item.items.forEach(item => { recurse(item) })
+        }
+        recurse(root)
+        return ret
+      }
+
+      const Import = format => {
+        console.log(`importing format ${format}`)
+      }
+
+      const Export = (format, selected=false) => {
+        console.log(`Exporting to format ${format}, ${selected?'selected only':'whole scene'}`)
+      }
+
       const InitMenus = () => {
         root = PushMenuItem(menus, 'root')
         PushMenuItem(root, 'File')
@@ -118,21 +192,22 @@
         PushMenuItem(root, 'Config')
         PushMenuItem(root, 'Help')
         PushMenuItem(root, 'About')
-        
-        for(var i = 0; i < 8; i++){
-          root.items.forEach(item => {
-            PushMenuItem(item, `sub ${i+1}`)
-          })
-        }
-        var el = FetchMenuItemByName('Config')
-        console.log(el)
-        el.items.map((sub, sIdx) => {
-          for(var i = 0; i < 8; i++){
-            PushMenuItem(sub, `sub ${sIdx+1}.${i+1}`)
-          }
-        })
 
-        var el = FetchMenuItemByName('sub 5.3')
+        var el = FetchMenuItemByName('File')
+        var el2, el3
+        el2 = PushMenuItem(el, 'import resource')
+        PushMenuItem(el2, 'obj', `Import('obj')`)
+        PushMenuItem(el2, 'custom shape', `Import('custom shape')`)
+        
+        el2 = PushMenuItem(el, 'export resource')
+        el3 = PushMenuItem(el2, 'only selected objects')
+        PushMenuItem(el3, 'obj', `Export('obj', true)`)
+        PushMenuItem(el3, 'custom shape', `Export('custom shape', true)`)
+        el3 = PushMenuItem(el2, 'whole scene')
+        PushMenuItem(el3, 'obj', `Export('obj', false)`)
+        PushMenuItem(el3, 'custom shape', `Export('custom shape', false)`)
+
+        var el = FetchMenuItemByName('About')
         for(var i = 0; i < 8; i++){
           PushMenuItem(el, `sub 5.3.${i+1}`)
         }
@@ -154,10 +229,347 @@
         })
       }
       InitMenus()
-      
-      
+
+      var assets = [
+        {
+          name: 'hand png',
+          url: 'https://srmcgann.github.io/coordinates_workshop/assets/hand.png',
+          loaded: false,
+          resource: new Image()
+        },
+        {
+          name: 'zoom png',
+          url: 'https://srmcgann.github.io/coordinates_workshop/assets/zoom.png',
+          loaded: false,
+          resource: new Image()
+        }
+      ]
+
+      assets.map((asset, aIdx) => {
+        fetch(asset.url).then(res=>res.blob()).then(data => {
+          asset.resource.onload = e => {
+            asset.loaded = true
+          }
+          asset.resource.src = URL.createObjectURL(data)
+        })
+      })
+
+      const DrawGyroscope = () => {
+        var fs
+        var gyroYaw = renderer.yaw
+        var gyroPitch = renderer.pitch
+        var gyroSize = 40
+        var gyroPosX = c.width - gyroSize * 2
+        var gyroPosY = gyroSize * 2 + menuRows * menuBarHeight
+        var sd =32
+        var gyrohover = false
+        var zoomhover = false
+        var movehover = false
+
+        var zoomPosX = gyroPosX + gyroSize/1.25
+        var zoomPosY = gyroPosY + gyroSize * 1.75
+        var zoomSize = gyroSize / 2.5
+          
+        var movePosX = gyroPosX + gyroSize/1.25
+        var movePosY = gyroPosY + gyroSize * 1.75 + zoomSize * 3
+        var moveSize = gyroSize / 2.5
+        
+        if(!(moveInProgress || zoomInProgress) && 
+           Math.hypot(gyroPosX-mx, gyroPosY-my) < gyroSize*1.25 || orientationInProgress){
+          gyrohover = true
+          ctx.beginPath()
+          for(var j=0; j<sd; j++){
+            x = gyroPosX + S(p=Math.PI*2/sd*j) * gyroSize * 1.25
+            y = gyroPosY + C(p) * gyroSize * 1.25
+            ctx.lineTo(x, y)
+          }
+          ctx.fillStyle = '#fff3'
+          ctx.fill()
+        }else if(!(moveInProgress || orientationInProgress) &&
+                   Math.hypot(zoomPosX-mx, zoomPosY-my) < zoomSize*1.25 || zoomInProgress){
+          zoomhover = true
+          if(zoomhover && renderer.mouseButton == 1 || zoomInProgress){
+            if(clickReady){
+              clickReady = false
+              zoomInProgress = true
+              omx = mx
+              omy = my
+            }
+            
+            targZ -= (omy-my)/zoomHoming
+            
+            omx = mx
+            omy = my
+          }
+        }else if(!(zoomInProgress || orientationInProgress) &&
+                   Math.hypot(movePosX-mx, movePosY-my) < moveSize*1.25 || moveInProgress){
+          movehover = true
+          if(movehover && renderer.mouseButton == 1 || moveInProgress){
+            if(clickReady){
+              clickReady = false
+              moveInProgress = true
+              omx = mx
+              omy = my
+            }
+            
+            var vx = 1
+            var vy = 0
+            var vz = 0
+            p = renderer.yaw
+            d = (omx-mx) / moveHoming
+            targX += S(p) * d
+            targZ += C(p) * d
+            
+            /*
+            var vx = 0
+            var vy = 1
+            var vz = 0
+            p = Math.atan2(vx, vz) + renderer.yaw
+            d = Math.hypot(vx, vz)
+            vx = S(p) * d * (omy-my) / moveHoming
+            vz = C(p)
+            p = Math.atan2(vy, vz) + renderer.pitch // + Math.PI/2
+            d = Math.hypot(vy, vz)
+            vy = S(p) * d * (omy-my) / moveHoming
+            vz = C(p) * d * (omy-my) / moveHoming
+            targX += vx
+            targY += vy
+            targZ += vz
+            */
+            
+            omx = mx
+            omy = my
+          }
+        }
+        
+        ctx.beginPath()
+        for(var j=0; j<sd; j++){
+          x = zoomPosX + S(p=Math.PI*2/sd*j) * zoomSize * 1.25
+          y = zoomPosY + C(p) * zoomSize * 1.25
+          ctx.lineTo(x, y)
+        }
+        ctx.fillStyle = zoomhover || zoomInProgress ? '#fff3' : '#222'
+        ctx.fill()
+        ctx.globalAlpha = .66
+        var img = assets.filter(v => v.name == 'zoom png')[0].resource
+        ctx.drawImage(img, zoomPosX-zoomSize*.75, zoomPosY-zoomSize*.75,
+                        zoomSize*1.5, zoomSize*1.5)
+        ctx.globalAlpha = 1
+        
+        ctx.beginPath()
+        for(var j=0; j<sd; j++){
+          x = movePosX + S(p=Math.PI*2/sd*j) * moveSize * 1.25
+          y = movePosY + C(p) * moveSize * 1.25
+          ctx.lineTo(x, y)
+        }
+        ctx.fillStyle = movehover || moveInProgress ? '#fff3' : '#222'
+        ctx.fill()
+        ctx.globalAlpha = .66
+        var img = assets.filter(v => v.name == 'hand png')[0].resource
+        ctx.drawImage(img, movePosX-moveSize, movePosY-moveSize, moveSize*2, moveSize*2)
+        ctx.globalAlpha = 1
+        
+        
+        var tx, ty, tz
+        var components = [
+          { tx, ty, tz, verts:[], label: '' },
+          { tx, ty, tz, verts:[], label: '' },
+          { tx, ty, tz, verts:[], label: '' },
+          { tx, ty, tz, verts:[], label: '' },
+          { tx, ty, tz, verts:[], label: '' },
+          { tx, ty, tz, verts:[], label: '' },
+        ]
+        for(var i = 0; i < 6; i ++){
+          if(i<4){
+            p = Math.PI*2/4*i + gyroYaw + Math.PI
+            tx = S(p) * gyroSize
+            ty = 0
+            tz = C(p) * gyroSize
+            p = Math.atan2(ty, tz) + gyroPitch
+            d = Math.hypot(ty, tz)
+            ty = S(p) * d
+            tz = C(p) * d
+            tx += gyroPosX
+            ty += gyroPosY
+          }else{
+            tx = 0
+            ty = gyroSize * (i==4 ? -1 : 1)
+            tz = 0
+            p = Math.atan2(ty, tz) + gyroPitch
+            d = Math.hypot(ty, tz)
+            ty = S(p) * d
+            tz = C(p) * d
+            tx += gyroPosX
+            ty += gyroPosY
+          }
+          components[i].tx = tx
+          components[i].ty = ty
+          components[i].tz = tz
+          for(var j=0; j<sd; j++){
+            x = tx + S(p=Math.PI*2/sd*j) * gyroSize/5
+            y = ty + C(p) * gyroSize/5
+            components[i].verts.push([x,y])
+          }
+          switch(i){
+            case 0:
+              components[i].primary = true
+              components[i].label = 'Y'
+              components[i].fillStyle = '#4a0'
+              components[i].strokeStyle = '#4a0'
+            break
+            case 1:
+              components[i].primary = true
+              components[i].label = 'X'
+              components[i].fillStyle = '#f44'
+              components[i].strokeStyle = '#f44'
+            break
+            case 2:
+              components[i].primary = false
+              components[i].label = '-Y'
+              components[i].fillStyle = '#340'
+              components[i].strokeStyle = '#4a0'
+            break
+            case 3:
+              components[i].primary = false
+              components[i].label = '-X'
+              components[i].fillStyle = '#433'
+              components[i].strokeStyle = '#f44'
+            break
+            case 4:
+              components[i].primary = true
+              components[i].label = 'Z'
+              components[i].fillStyle = '#26f'
+              components[i].strokeStyle = '#26f'
+            break
+            case 5:
+              components[i].primary = false
+              components[i].label = '-Z'
+              components[i].fillStyle = '#138'
+              components[i].strokeStyle = '#26f'
+            break
+          }
+          ctx.font = (fs=20 * (gyroSize/50)) + 'px "Source Sans 3"'
+          components.sort((a, b) => b.tz - a.tz).map(component => {
+            if(component.primary){
+            ctx.beginPath()
+              ctx.lineTo(gyroPosX, gyroPosY)
+              ctx.lineTo(component.tx, component.ty)
+              ctx.lineWidth = 4
+              ctx.strokeStyle = component.strokeStyle
+              ctx.stroke()
+            }
+            ctx.beginPath()
+            component.verts.map(pair => {
+              ctx.lineTo(pair[0], pair[1])
+            })
+            ctx.fillStyle = component.fillStyle
+            ctx.strokeStyle = component.strokeStyle
+            ctx.closePath()
+            ctx.stroke()
+            ctx.fill()
+            component.hover = Math.hypot(mx-component.tx, my-component.ty) < gyroSize/5
+            if(!(zoomInProgress || moveInProgress) && gyrohover && renderer.mouseButton == 1
+               || orientationInProgress){
+              if(clickReady){
+                clickReady = false
+                orientationInProgress = true
+                omx = mx
+                omy = my
+              }
+              var flip = renderer.pitch > Math.PI/2 ||
+                         renderer.pitch < -Math.PI/2
+              targYaw -= (mx - omx) / 100 * (flip ? -1 : 1)
+              targPitch -= (my - omy) / 100
+              if(mx-omx || my-omy) axisAligned = ''
+              omx = mx
+              omy = my
+            }
+            if(component.primary || component.hover){
+              ctx.fillStyle = component.hover ? '#fff' : '#000'
+              ctx.fillText(component.label, component.tx, component.ty + fs/3)
+              
+              
+              if(component.hover && mouseUp && clickReady){
+                mouseUp = false
+                switch(component.label){
+                  case 'X':
+                    console.log(axisAligned)
+                    if(axisAligned == 'X'){
+                      axisAligned = '-X'
+                      targYaw = Math.PI/2
+                      targPitch = 0
+                    }else{
+                      axisAligned = 'X'
+                      targYaw = -Math.PI/2
+                      targPitch = 0
+                    }
+                  break
+                  case 'Y':
+                    if(axisAligned == 'Y'){
+                      axisAligned = '-Y'
+                      targYaw = 0
+                      targPitch = Math.PI
+                    }else{
+                      axisAligned = 'Y'
+                      targYaw = 0
+                      targPitch = 0
+                    }
+                  break
+                  case 'Z':
+                    if(axisAligned == 'Z'){
+                      axisAligned = '-Z'
+                      targYaw = 0
+                      targPitch = Math.PI/2
+                    }else{
+                      axisAligned = 'Z'
+                      targYaw = 0
+                      targPitch = -Math.PI/2
+                    }
+                  break
+                  case '-X':
+                    if(axisAligned == '-X'){
+                      axisAligned = 'X'
+                      targYaw = -Math.PI/2
+                      targPitch = 0
+                    }else{
+                      axisAligned = '-X'
+                      targYaw = Math.PI/2
+                      targPitch = 0
+                    }
+                  break
+                  case '-Y':
+                    if(axisAligned == '-Y'){
+                      axisAligned = 'Y'
+                      targYaw = -Math.PI
+                      targPitch = 0
+                    }else{
+                      axisAligned = '-Y'
+                      targYaw = Math.PI
+                      targPitch = 0
+                    }
+                  break
+                  case '-Z':
+                    if(axisAligned == '-Z'){
+                      axisAligned = 'Z'
+                      targYaw = 0
+                      targPitch = -Math.PI/2
+                    }else{
+                      axisAligned = '-Z'
+                      targYaw = 0
+                      targPitch = Math.PI/2
+                    }
+                  break
+                }
+              }
+            }
+          })
+        }
+      }
+
+
       const DrawMainMenu = () => {
         var height = fs * 1.2 + menuPadding
+        menuBarHeight = height
         ctx.font = (fs=24) + 'px "Source Sans 3"'
         hovering = false
         const DrawMenu = (menu, depth=0, offsetX=0, offsetY=0, parentName='') => {
@@ -170,14 +582,14 @@
               item.height = height
 
               var vy = depth ? (1+mIdx) * height : 0
-              
-              ctx.fillStyle = '#333'
+
+              ctx.fillStyle = '#222'
               if(depth > 1){
                 ctx.beginPath()
                 ctx.roundRect(menu.x - menuPadding/2 + offsetX,
-                             menu.y + vy - 2 + offsetY,
-                             width - menuPadding,
-                             (fs*1.25+menuPadding)*menuRows, [8])
+                              menu.y + vy - 2 + offsetY,
+                              width - menuPadding,
+                              (fs*1.25+menuPadding)*menuRows, [8])
                 ctx.fill()
               }else{
                 ctx.fillRect(menu.x - menuPadding/2 + offsetX,
@@ -198,25 +610,24 @@
                 ctx.fill()
                 if(renderer.mouseButton == 1 && clickReady &&
                    !item.items.length) {
-                   eval(item.script)
+                  eval(item.script)
+                  CloseAllMenus()
                   clickReady = false
-                //  item.showSubs = !item.showSubs
-                //  console.log(item.showSubs)
                 }
                 DrawMenu(item, depth+1, width-menuPadding*2, -height+2, item.name)
               }else{
                 item.showSubs = false
               }
-              
+
               ctx.fillStyle = '#000'
               ctx.fillText(item.name,
-                   menu.x + offsetX + width/2 - menuPadding + 3,
-                   menu.y + offsetY -menuPadding/4 + fs +
-                     menuPadding/2 - fs/20 + 2 + vy)
+                           menu.x + offsetX + width/2 - menuPadding + 3,
+                           menu.y + offsetY -menuPadding/4 + fs +
+                           menuPadding/2 - fs/20 + 2 + vy)
               ctx.fillStyle = '#fff'
               ctx.fillText(item.name, menu.x + offsetX + width/2 - menuPadding,
-                            menu.y + offsetY -menuPadding/4 +
-                              fs + menuPadding/2 - fs/20 + vy)
+                           menu.y + offsetY -menuPadding/4 +
+                           fs + menuPadding/2 - fs/20 + vy)
             })
           }else{
             var posX = 0
@@ -243,24 +654,24 @@
 
               ctx.fillStyle = '#000'
               ctx.fillText(item.name,
-                   item.x + offsetX + width/2 - menuPadding + 3,
-                   item.y + offsetY -menuPadding/4 + fs +
-                     menuPadding/2 - fs/20 + 2 + vy)
+                           item.x + offsetX + width/2 - menuPadding + 3,
+                           item.y + offsetY -menuPadding/4 + fs +
+                           menuPadding/2 - fs/20 + 2 + vy)
               ctx.fillStyle = '#fff'
               ctx.fillText(item.name, item.x + offsetX + width/2 - menuPadding,
-                            item.y + offsetY -menuPadding/4 +
-                              fs + menuPadding/2 - fs/20 + vy)
+                           item.y + offsetY -menuPadding/4 +
+                           fs + menuPadding/2 - fs/20 + vy)
             })
           }
         }
-        
-        var menuRows = 1 + (menubarWidth/Math.max(menubarWidth, w) | 0)
-        ctx.fillStyle = '#333'
+
+        menuRows = 1 + (menubarWidth/Math.max(menubarWidth, w) | 0)
+        ctx.fillStyle = '#222'
         ctx.fillRect(0, 0, w, (fs*1.25+menuPadding)*menuRows)
         ctx.textAlign = 'center'
         DrawMenu(menus)
       }
-      
+
 
       var shaderOptions = [
         {lighting: {type: 'ambientLight', value: .5}},
@@ -302,10 +713,23 @@
         await flatShader.ConnectGeometry(geometry)
       })
 
+      var geoOptions = {
+        shapeType: 'cube',
+        name: 'test cube',
+        subs: 2,
+        color: 0xffffff,
+        size: 2,
+        colorMix: .33,
+      }
+      if(1)await Coordinates.LoadGeometry(renderer, geoOptions).then(async (geometry) => {
+        shapes.push(geometry)
+        await shader.ConnectGeometry(geometry)
+      })
+
 
 
       var cl = 4
-      var rw = 4  
+      var rw = 4 
       var sp = 20
       var pointArray = Array(cl*rw).fill().map((v, i) => {
         x = ((i%cl)-cl/2 + .5) * sp
@@ -320,7 +744,6 @@
         alpha: 1,
         color: 0x888888,
         colorMix: .5,
-        //scaleY: .2,
       }
       await Coordinates.LoadGeometry(renderer, geoOptions).then(async (geometry) => {
         Coordinates.ShapeFromArray(geometry, pointArray).then(async res => {
@@ -333,7 +756,7 @@
             { uniform: {
               type: 'fog',
               color: 0x333333,
-              value: 3,
+              value: 4.25,
             } }
           ]
           var gridShader = await Coordinates.BasicShader(renderer, shaderOptions)
@@ -341,10 +764,11 @@
           await gridShader.ConnectGeometry(res)
         })
       })
-      
 
-      if(1) Coordinates.LoadFPSControls(renderer, {
-        flyMode: true,
+
+      if(0) Coordinates.LoadFPSControls(renderer, {
+        //flyMode: true,
+        useKeys: false,
         mSpeed: .5,
         showCrosshair: false,
         crossharSel: 2,
@@ -355,15 +779,15 @@
         var hover, hoverMargin = menuPadding * 4
         var val = menu.showSubs && !!menu.items.filter(sub => Hover(sub, depth+1)).length
         if(depth){
-        hover = mx > menu.x - hoverMargin &&
-                mx < menu.x + menu.width + hoverMargin &&
-                my > menu.y - hoverMargin &&
-                my < menu.y + menu.height +hoverMargin
+          hover = mx > menu.x - hoverMargin &&
+            mx < menu.x + menu.width + hoverMargin &&
+            my > menu.y - hoverMargin &&
+            my < menu.y + menu.height +hoverMargin
         }else{
           hover = mx > menu.x && mx < menu.x + menu.width &&
-                  my > menu.y && my < menu.y + menu.height
+            my > menu.y && my < menu.y + menu.height
         }
-        
+
         var ret = hover || val
         if(ret) hovering = true
         return ret
@@ -377,57 +801,125 @@
       }
 
       var clickReady = true
-      window.onmouseup = () => clickReady = true
 
-      renderer.z = 10
-      renderer.y = -5
-      renderer.pitch = .25
+      targX = renderer.x = 0
+      targY = renderer.y = 0
+      targZ = renderer.z = 10
+      targYaw = renderer.yaw = -.2
+      targPitch = renderer.pitch = -.2
+
       window.Draw = () => {
 
-        c = canvasTexture.c
-        ctx = canvasTexture.ctx
-        w = canvasTexture.c.width
-        h = canvasTexture.c.height
-        
-        mx = renderer.mouseX
-        my = renderer.mouseY
-        
         var t = renderer.frameCount / 60
         renderer.Clear()
         ctx.clearRect(0,0,w, h)
         
+        if(renderer.cameraMode == 'fps'){
+          //p = -Math.atan2(camFocusX-renderer.z, camFocusY-renderer.z)
+          //d = Math.hypot(camFocusX-renderer.z, camFocusY-renderer.z) + targD
+          //targX = camFocusX - S(p) * d
+          //targZ = camFocusZ - C(p) * d
+          //targY = camFocusY +
+        }
+        
+        while(Math.abs(targYaw-renderer.yaw) > Math.PI){
+          renderer.yaw += targYaw < renderer.yaw ? -Math.PI*2 : Math.PI*2
+        }
+        while(Math.abs(targPitch-renderer.pitch) > Math.PI){
+          renderer.pitch += targPitch < renderer.pitch ? -Math.PI*2 : Math.PI*2
+        }
+        renderer.yaw += (targYaw - renderer.yaw) / gyroHoming
+        renderer.pitch += (targPitch - renderer.pitch) / gyroHoming
+
+        if(renderer.pitch > Math.PI) renderer.pitch -= Math.PI*2
+        if(renderer.pitch <-Math.PI) renderer.pitch += Math.PI*2
+
+        renderer.offsetX += (targX - renderer.offsetX) / homing
+        renderer.offsetY += (targY - renderer.offsetY) / homing
+        renderer.offsetz += (targZ - renderer.offsetZ) / homing
+
+
+        var ohovering = hovering
+        c = canvasTexture.c
+        ctx = canvasTexture.ctx
+        w = canvasTexture.c.width
+        h = canvasTexture.c.height
+
+        mx = renderer.mouseX
+        my = renderer.mouseY
+
+
         shapes.map((shape, sIdx) => {
           switch(shape.name){
             case 'world grid':
-              shape.shapeData.map((subShape, sIdx) => {
-                if(renderer.x + subShape.wx > sp * (cl-2)){
-                  subShape.x -= sp * cl
-                }
-                if(renderer.x + subShape.wx < -sp * (cl-2)){
-                  subShape.x += sp * cl
-                }
-                if(renderer.z + subShape.wz > sp * (rw-2)){
-                  subShape.z -= sp * rw
-                }
-                if(renderer.z + subShape.wz < -sp * (rw-2)){
-                  subShape.z += sp * rw
-                }
-              })
-              renderer.Draw(shape)
-            break
+              if(!axisAligned || axisAligned == '-Z' || axisAligned == 'Z'){
+                shape.shapeData.map((subShape, sIdx) => {
+                  if(renderer.x + subShape.wx > sp * (cl-1)){
+                    subShape.x -= sp * cl
+                  }
+                  if(renderer.x + subShape.wx < -sp * (cl-1)){
+                    subShape.x += sp * cl
+                  }
+                  if(renderer.z + subShape.wz > sp * (rw-1)){
+                    subShape.z -= sp * rw
+                  }
+                  if(renderer.z + subShape.wz < -sp * (rw-1)){
+                    subShape.z += sp * rw
+                  }
+                })
+                renderer.Draw(shape)
+              }else{
+                
+              }
+              break
             case 'background':
               renderer.Draw(shape)
-            break
+              break
             default:
               renderer.Draw(shape)
-            break
+              break
           }
         })
 
 
         // main menu
-        
+
         DrawMainMenu()
+        if(hovering){
+          console.log('hm')
+          document.body.style.cursor = 'pointer'
+        }else{
+          document.body.style.cursor = 'default'
+        }
+        
+        if(0){
+          if(ohovering!=hovering){
+            if(hovering){
+              tempRendererProps = {
+                x: renderer.x,
+                y: renderer.y,
+                z: renderer.z,
+                roll: renderer.roll,
+                pitch: renderer.pitch,
+                yaw: renderer.yaw,
+                fov: renderer.fov,
+              }
+            }else{
+              setTimeout(() => {
+                renderer.x = tempRendererProps.x
+                renderer.y = tempRendererProps.y
+                renderer.z = tempRendererProps.z
+                renderer.roll = tempRendererProps.roll
+                renderer.pitch = tempRendererProps.pitch
+                renderer.yaw = tempRendererProps.yaw
+                renderer.fov = tempRendererProps.fov
+              }, 0)
+            }
+          }
+          renderer.useKeys = !hovering
+        }
+        
+        DrawGyroscope()
       }
 
     </script>
