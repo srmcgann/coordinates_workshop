@@ -51,6 +51,7 @@
         fov: 1100, width: 1920, height: 1080,
       }
       var renderer = await Coordinates.Renderer(rendererOptions)
+      var ofov = renderer.fov
 
       rendererOptions.attachToBody = true
       rendererOptions.context = {
@@ -67,8 +68,8 @@
       var w = canvasTexture.c.width
       var h = canvasTexture.c.height
       var fs, mx, my, hovering = false
-      var tempRendererProps, menuRows=1
-      var menuBarHeight, omx, omy
+      var tempRendererProps, menuRows=1, secondaryMenuRows=1
+      var menuBarHeight, secondaryMenuBarHeight, omx, omy
       var targYaw = renderer.yaw
       var targX = 0, targY = 0, targZ = 0, targD = 0
       var targPitch = renderer.pitch
@@ -80,9 +81,581 @@
       var zoomInProgress = false
       var moveInProgress = false
       var axisAligned = ''
+      var oAxisAligned = ''
       var camFocusX = 0
       var camFocusY = 0
       var camFocusZ = 0
+      var version = 1.1
+      
+      var samples = [
+        {
+          name: 'birdship',
+          url: 'https://srmcgann.github.io/objs/bird ship/birdship.obj',
+          map: 'https://srmcgann.github.io/objs/bird ship/birdship.jpg',
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/angel 1.obj',
+          map:  'https://srmcgann.github.io/objs/angel 1.jpg',
+          name: 'angel 1'
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/arrow.obj',
+          map:  'https://srmcgann.github.io/objs/arrow.jpg',
+          name: 'arrow'
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/arrow 2.obj',
+          map:  'https://srmcgann.github.io/objs/arrow 2.jpg',
+          name: 'arrow 2'
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/axe.obj',
+          map:  -1,
+          name: 'axe'
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/brain.obj',
+          map:  -1,
+          name: 'brain'
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/callibration_tool.obj',
+          map:  -1,
+          name: 'callibration tool'
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/car_roofgun.obj',
+          map:  'https://srmcgann.github.io/objs/car.png',
+          name: 'car'
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/cat.obj',
+          map:  -1,
+          name: 'cat'
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/chair.obj',
+          map:  -1,
+          name: 'chair'
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/clouds.obj',
+          map:  'https://srmcgann.github.io/objs/clouds.jpg',
+          name: 'clouds'
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/container_opentop_square_lowpoly.obj',
+          map:  '',
+          name: 'container opentop square'
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/cottage.obj',
+          map:  '',
+          name: 'cottage'
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/cross.obj',
+          map:  -1,
+          name: 'cross'
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/diamond_lowpoly.obj',
+          map:  '',
+          name: 'diamond'
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/disk.obj',
+          map:  'https://srmcgann.github.io/objs/disk.png',
+          name: 'disk'
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/dude.obj',
+          map:  'https://srmcgann.github.io/objs/dude.jpg',
+          name: 'dude'
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/dude2.obj',
+          map:  'https://srmcgann.github.io/objs/dude.jpg',
+          name: 'dude2'
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/elephant.obj',
+          map:  '',
+          name: 'elephant'
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/emoji_eyes.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/emoji_face.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/face_cursor.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/fish.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/frame_weighted_normals.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/funnel_fatboi.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/game_border.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/gear.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/gem.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/glasses.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/goodcar3.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/greek_head.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/greek_head1.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/greek_head2.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/greek_head3.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/greek_head4.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/hairgirl_new.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/hand.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/hat.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/heart.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/hextris_frame.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/jet_fullpoly.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/jet_hipoly.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/jet_lowpoly.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/jet_medpoly.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/ladybug.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/large prop.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/Lowpoly_tree_sample.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/lozenge1.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/M9.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/missile.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/missilePack.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/missilePack_lowpoly.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/missile_lowpoly.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/new ship 1.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/new_cat.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/no-skid.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/no-skid_final.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/no-skid_final_small.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/parabolic_dish.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/pickaxe.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/pipegrid.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/pipegrid_hipoly.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/pipegrid_hipoly_single.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/pipegrid_medpoly.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/powerupMissile.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/powerupRing.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/powerup_tile.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/pyramid.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/rack.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/rack2.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/rectangle_ultrahighpoly_xz.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/rectangular_prism_1x1x4_lowpoly.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/rectangular_prism_1x1x4_ultralowpoly.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/reflector2.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/refractor1.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/robotic_arm.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/rock.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/rose.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/rubik.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/sea_turtle.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/ship1.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/ship2.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/skull.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/skull3.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/skull_lowpoly.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/skull_medpoly.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/sphere_ico_hipoly.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/sphere_ico_medpoly.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/sphere_ico_medpoly_uvs_triangulated.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/Sting-Sword.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/sunglasses.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/t-rex.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/teapot.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/testcube.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/test_tile.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/tiger.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/track.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/tree1.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/tree2.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/tree3.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/turtle_ultralowpoly.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/Volkswagen Beetle 1963.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/wall cylinder.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/wolf.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/WoodHouse.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/yinyang.obj',
+          map:  '',
+          name: ''
+        },
+        {
+          url:  'https://srmcgann.github.io/objs/yinyang2.obj',
+          map:  '',
+          name: ''
+        }
+      ]
+      
+      var keys = Array(256).fill(false)
+      var keyTimers = Array(256).fill(0)
+      var keyTimerInterval = .2
+      
+      var selected = []
+      
+      window.onkeydown = e => {
+        keys[e.keyCode] = true
+      }
+      
+      window.onkeyup = e => {
+        keys[e.keyCode] = false
+      }
+      
+      const DoKeys = () => {
+        keys.map((state, keyCode) => {
+          if(state && keyTimers[keyCode] < renderer.t){
+            switch(keyCode){
+              case 32:
+                console.log('spacebar')
+                keyTimers[keyCode] = renderer.t + keyTimerInterval
+              break
+              case 46:
+                shapes = shapes.filter(v=>v.name != 'scene shape' || !v.selected)
+                console.log(shapes)
+                keyTimers[keyCode] = renderer.t + keyTimerInterval
+              break
+            }
+          }
+        })
+      }
 
       window.onresize = rsz = e => {
         var w, h
@@ -142,10 +715,11 @@
 
       var menuPadding = 8
       var menus = []
+      var secondaryMenus = []
       var item, root, menubarWidth, width
       var menubarHeight = 24 * 1.2 + menuPadding
 
-      const FetchMenuItemByName = name => {
+      const FetchMenuItemByName = (name, menus) => {
         var ret, found=false
         const recurse = item => {
           if(item.name == name) return item
@@ -179,49 +753,61 @@
         return ret
       }
 
-      const Import = (format, replace=true) => {
-        var url
-        if(url = prompt(`enter a URL to a shape resource (${format})`)){
-          var map = prompt(`enter a texture URL, optionally, or just hit enter`)
-          LoadTestShape(url, format.toLowerCase(), map, replace)
+      const Import = (format, replace=true, url='', map='') => {
+        if(!url){
+          url = prompt(`enter a URL to a shape resource (${format})`)
         }
+        if(!map){
+          map = prompt(`enter a texture URL, optionally, or just hit enter`)
+        }
+        if(map == -1) map = ''
+        if(url) LoadSceneShape(url, format.toLowerCase(), map, replace)
       }
 
       const Export = (format, selected=false) => {
         console.log(`Exporting to format ${format}, ${selected?'selected only':'whole scene'}`)
       }
-
+      
       const InitMenus = () => {
         root = PushMenuItem(menus, 'root')
         PushMenuItem(root, 'File')
         PushMenuItem(root, 'Edit')
         PushMenuItem(root, 'Config')
         PushMenuItem(root, 'Help')
-        PushMenuItem(root, 'About')
 
-        var el = FetchMenuItemByName('File')
+        var el = FetchMenuItemByName('File', menus)
         var el2, el3
+        el2 = PushMenuItem(el, 'load resource as new workspace')
+          PushMenuItem(el2, 'obj', `Import('obj')`)
+          PushMenuItem(el2, 'custom shape', `Import('custom shape', true)`)
+        
         el2 = PushMenuItem(el, 'add resource')
-        PushMenuItem(el2, 'obj', `Import('obj')`)
-        PushMenuItem(el2, 'custom shape', `Import('custom shape', false)`)
+          PushMenuItem(el2, 'obj', `Import('obj')`)
+          PushMenuItem(el2, 'custom shape', `Import('custom shape', false)`)
         
         el2 = PushMenuItem(el, 'export')
-        el3 = PushMenuItem(el2, 'only selected objects')
-        PushMenuItem(el3, 'obj', `Export('obj', true)`)
-        PushMenuItem(el3, 'custom shape', `Export('custom shape', true)`)
-        el3 = PushMenuItem(el2, 'whole scene')
-        PushMenuItem(el3, 'obj', `Export('obj', false)`)
-        PushMenuItem(el3, 'custom shape', `Export('custom shape', false)`)
+          el3 = PushMenuItem(el2, 'only selected objects')
+            PushMenuItem(el3, 'obj', `Export('obj', true)`)
+            PushMenuItem(el3, 'custom shape', `Export('custom shape', true)`)
+          el3 = PushMenuItem(el2, 'whole scene')
+            PushMenuItem(el3, 'obj', `Export('obj', false)`)
+            PushMenuItem(el3, 'custom shape', `Export('custom shape', false)`)
 
-        el2 = PushMenuItem(el, 'load resource as new workspace')
-        PushMenuItem(el2, 'obj', `Import('obj')`)
-        PushMenuItem(el2, 'custom shape', `Import('custom shape', true)`)
-        
+        el2 = PushMenuItem(el, 'samples')
+          samples.map(sample => {
+            el3 = PushMenuItem(el2, sample.name)
+              PushMenuItem(el3, 'textured', `Import('obj', false,
+                                                '${sample.url}',
+                                                '${sample.map}')`)
+              PushMenuItem(el3, 'no texture', `Import('obj', false,
+                                                '${sample.url}', -1)`)
+          })
 
-        var el = FetchMenuItemByName('About')
-        for(var i = 0; i < 8; i++){
-          PushMenuItem(el, `sub 5.3.${i+1}`)
-        }
+
+        var el = FetchMenuItemByName('Help', menus)
+        PushMenuItem(el, `About`, `alert('version ${version}')`)
+
+
 
         const recurse = (item, depth=0) => {
           if(depth){
@@ -238,6 +824,28 @@
           width = menu.textWidth + menuPadding * 4
           menubarWidth += width + menuPadding * 4
         })
+        
+        root = PushMenuItem(secondaryMenus, 'root')
+        PushMenuItem(root, 'mode')
+        PushMenuItem(root, 'view')
+        PushMenuItem(root, 'select')
+        PushMenuItem(root, 'add')
+        PushMenuItem(root, 'object')
+        
+        var el = FetchMenuItemByName('mode', secondaryMenus)
+        el2 = PushMenuItem(el, 'object')
+        el2 = PushMenuItem(el, 'edit')
+        el2 = PushMenuItem(el, 'sculpt')
+
+        var el = FetchMenuItemByName('add', secondaryMenus)
+        el2 = PushMenuItem(el, 'tetrahedron', `LoadSceneShape('', 'tetrahedron')`)
+        el2 = PushMenuItem(el, 'cube', `LoadSceneShape('', 'cube')`)
+        el2 = PushMenuItem(el, 'octahedron', `LoadSceneShape('', 'octahedron')`)
+        el2 = PushMenuItem(el, 'dodecahedron', `LoadSceneShape('', 'dodecahedron')`)
+        el2 = PushMenuItem(el, 'icosahedron', `LoadSceneShape('', 'icosahedron')`)
+        el2 = PushMenuItem(el, 'sphere', `LoadSceneShape('', 'sphere')`)
+        el2 = PushMenuItem(el, 'torus', `LoadSceneShape('', 'torus')`)
+        el2 = PushMenuItem(el, 'torus knot', `LoadSceneShape('', 'torus knot')`)
       }
       InitMenus()
 
@@ -271,7 +879,7 @@
         var gyroPitch = renderer.pitch
         var gyroSize = 40
         var gyroPosX = c.width - gyroSize * 2
-        var gyroPosY = gyroSize * 2 + menuRows * menuBarHeight
+        var gyroPosY = gyroSize * 2 + menuRows * menuBarHeight + secondaryMenuRows * secondaryMenuBarHeight
         var sd =32
         var gyrohover = false
         var zoomhover = false
@@ -512,7 +1120,6 @@
                 mouseUp = false
                 switch(component.label){
                   case 'X':
-                    console.log(axisAligned)
                     if(axisAligned == 'X'){
                       axisAligned = '-X'
                       targYaw = Math.PI/2
@@ -586,21 +1193,26 @@
       }
 
 
-      const DrawMainMenu = () => {
+      const DrawMainMenus = () => {
         var height = fs * 1.2 + menuPadding
         menuBarHeight = height
         ctx.font = (fs=24) + 'px "Source Sans 3"'
         hovering = false
-        const DrawMenu = (menu, depth=0, offsetX=0, offsetY=0, parentName='') => {
+        var mP_ = menuPadding
+        var h_ = height
+        const DrawMenu = (menu, depth=0, offsetX=0, offsetY=0, parentName='', secondary=false) => {
+          var menuPadding = fs/24*mP_
+          var height = fs/24*h_
           if(depth){
             menu.items.map((item, mIdx) => {
+            
 
               item.textWidth = ctx.measureText(item.name).width
               var width = item.textWidth + menuPadding * 4
               item.width = width - menuPadding
               item.height = height
 
-              var vy = depth ? (1+mIdx) * height : 0
+              var vy = (depth ? (1+mIdx) * height : 0) + (secondary ? menuBarHeight: 0) + 2
 
               ctx.fillStyle = '#222'
               if(depth > 1){
@@ -618,9 +1230,9 @@
               }
 
               menu.items[mIdx].x = menu.x + menuPadding/2 + offsetX
-              menu.items[mIdx].y = menu.y + vy - 2 + offsetY
+              menu.items[mIdx].y = menu.y + vy - 2 + offsetY - (secondary ? height : 0)
 
-              if(Hover(item)){
+              if(Hover(item, 0, secondary)){
                 menu.items.map(item => item.showSubs = false)
                 item.showSubs = true
                 ctx.fillStyle = '#555'
@@ -633,7 +1245,7 @@
                   CloseAllMenus()
                   clickReady = false
                 }
-                DrawMenu(item, depth+1, width-menuPadding*2, -height+2, item.name)
+                DrawMenu(item, depth+1, width-menuPadding*2, -height+2, item.name, secondary)
               }else{
                 item.showSubs = false
               }
@@ -655,18 +1267,18 @@
               var width = item.textWidth + menuPadding * 4
               item.width = width - menuPadding * 2
               item.height = height
-              var vy = depth ? (1+mIdx) * height : 0
+              var vy = (depth ? (1+mIdx) * height : 0) + (secondary ? menuBarHeight: 0) + 2
               item.x = posX + menuPadding/2
               item.y = menuPadding/3
               posX += ctx.measureText(item.name).width + menuPadding * 2.5
-              if(Hover(item)){
+              if(Hover(item, 0, secondary)){
                 menu[0].items.map(item => item.showSubs = false)
                 item.showSubs = true
                 ctx.fillStyle = '#555'
                 ctx.beginPath()
                 ctx.roundRect(item.x + offsetX, item.y + offsetY + vy, width-menuPadding*2, height-menuPadding/2, [8])
                 ctx.fill()
-                DrawMenu(item, depth+1, 0, 0, item.name)
+                DrawMenu(item, depth+1, 0, 0, item.name, secondary)
               }else{
                 item.showSubs = false
               }
@@ -684,11 +1296,24 @@
           }
         }
 
+
+        if(1){
+          var secondaryHeight = fs * 1.2 + menuPadding
+          secondaryMenuBarHeight = height
+          ctx.font = (fs=18) + 'px "Source Sans 3"'
+          secondaryMenuRows = 1 + (menubarWidth/Math.max(menubarWidth, w) | 0)
+          ctx.fillStyle = '#111'
+          ctx.fillRect(0, menuBarHeight, w, (fs*1.25+menuPadding)*secondaryMenuRows)
+          ctx.textAlign = 'center'
+          DrawMenu(secondaryMenus, 0, 0, 0, '', true)
+        }
+        fs=24
         menuRows = 1 + (menubarWidth/Math.max(menubarWidth, w) | 0)
         ctx.fillStyle = '#222'
         ctx.fillRect(0, 0, w, (fs*1.25+menuPadding)*menuRows)
         ctx.textAlign = 'center'
         DrawMenu(menus)
+        
       }
 
 
@@ -748,7 +1373,7 @@
       var gridShader = await Coordinates.BasicShader(renderer, shaderOptions)
 
       var cl = 1
-      var rw = 2
+      var rw = 1
       var sp = .02
       var pointArray = Array(cl*rw).fill().map((v, i) => {
         x = ((i%cl)-cl/2 + .5) * sp
@@ -756,9 +1381,10 @@
         z = 0
         return [x, y, z]
       })
+      var baseAxisVerts
       var geoOptions = {
         shapeType: 'obj',
-        url: 'https://srmcgann.github.io/coordinates_workshop/assets/axes.obj',
+        url: 'https://srmcgann.github.io/coordinates_workshop/assets/axes.obj?2',
         map: 'https://srmcgann.github.io/coordinates_workshop/assets/axes_texture.png?2',
         name: 'axes',
         alpha: .9,
@@ -766,23 +1392,27 @@
         colorMix: 0,
       }
       await Coordinates.LoadGeometry(renderer, geoOptions).then(async (geometry) => {
-        Coordinates.ShapeFromArray(geometry, pointArray).then(async res => {
-          shapes.push(res)
-          await gridShader.ConnectGeometry(res)
-        })
+        baseAxisVerts = structuredClone(geometry.vertices)
+        shapes.push(geometry)
+        await gridShader.ConnectGeometry(geometry)
       })
 
-      const LoadTestShape = async (url, shapeType, map='', replace=true) => {
+      const LoadSceneShape = async (url, shapeType, map='', replace=true) => {
         var geoOptions = {
           shapeType,
           url,
           map,
-          name: 'test shape',
+          name: 'scene shape',
           color: 0xffffff,
           colorMix: map?0:.33,
         }
-        if(replace) shapes = shapes.filter(shape => shape.name != 'test shape')
+        if(replace) shapes = shapes.filter(shape => shape.name != 'scene shape')
+        shapes.filter(shape => shape.name != 'scene shape').map((shape, sIdx) => {
+          shape.selected = false
+        })
         await Coordinates.LoadGeometry(renderer, geoOptions).then(async (geometry) => {
+          geometry.hash = Coordinates.GenHash(renderer.t)
+          geometry.selected = false
           shapes.push(geometry)
           await shader.ConnectGeometry(geometry)
         })
@@ -790,21 +1420,23 @@
 
       var geoOptions = {
         shapeType: 'cube',
-        name: 'test shape',
+        name: 'scene shape',
         subs: 2,
         color: 0xffffff,
         size: 2,
         colorMix: .33,
       }
-      if(1)await Coordinates.LoadGeometry(renderer, geoOptions).then(async (geometry) => {
+      if(0)await Coordinates.LoadGeometry(renderer, geoOptions).then(async (geometry) => {
         shapes.push(geometry)
+        geometry.hash = Coordinates.GenHash(renderer.t)
+        geometry.selected = false
         await shader.ConnectGeometry(geometry)
       })
 
 
-      var cl = 4
-      var rw = 4 
-      var sp = 20
+      var cl = 6
+      var rw = 6 
+      var sp = 10
       var pointArray = Array(cl*rw).fill().map((v, i) => {
         x = ((i%cl)-cl/2 + .5) * sp
         y = 0
@@ -836,17 +1468,20 @@
         crosshairSize: .5,
       })
 
-      const Hover = (menu, depth=0) => {
+      const Hover = (menu, depth=0, secondary) => {
+        var offsetX = 0
+        var offsetY = secondary ? (fs*1.25+menuPadding)*menuRows : 0
         var hover, hoverMargin = menuPadding * 4
-        var val = menu.showSubs && !!menu.items.filter(sub => Hover(sub, depth+1)).length
+        var val = menu.showSubs && !!menu.items.filter(sub => Hover(sub, depth+1,
+                                                              secondary)).length
         if(depth){
-          hover = mx > menu.x - hoverMargin &&
-            mx < menu.x + menu.width + hoverMargin &&
-            my > menu.y - hoverMargin &&
-            my < menu.y + menu.height +hoverMargin
+          hover = mx > menu.x + offsetX - hoverMargin &&
+            mx < menu.x + offsetX + menu.width + hoverMargin &&
+            my > menu.y + offsetY - hoverMargin &&
+            my < menu.y + offsetY + menu.height +hoverMargin
         }else{
-          hover = mx > menu.x && mx < menu.x + menu.width &&
-            my > menu.y && my < menu.y + menu.height
+          hover = mx > menu.x + offsetX && mx < menu.x + menu.width + offsetX &&
+            my > menu.y + offsetY && my < menu.y + menu.height + offsetY
         }
 
         var ret = hover || val
@@ -879,13 +1514,7 @@
         renderer.Clear()
         ctx.clearRect(0,0,w, h)
         
-        if(renderer.cameraMode == 'fps'){
-          //p = -Math.atan2(camFocusX-renderer.z, camFocusY-renderer.z)
-          //d = Math.hypot(camFocusX-renderer.z, camFocusY-renderer.z) + targD
-          //targX = camFocusX - S(p) * d
-          //targZ = camFocusZ - C(p) * d
-          //targY = camFocusY +
-        }
+        DoKeys()
         
         while(Math.abs(targYaw-renderer.yaw) > Math.PI){
           renderer.yaw += targYaw < renderer.yaw ? -Math.PI*2 : Math.PI*2
@@ -914,18 +1543,56 @@
 
         mx = renderer.mouseX
         my = renderer.mouseY
-
+        
+        renderer.fov = axisAligned ? 1e5 : ofov
 
         shapes.map((shape, sIdx) => {
           switch(shape.name){
             case 'axes':
+              if(axisAligned != oAxisAligned ||
+                 axisAligned == 'X' || axisAligned == '-X' ||
+                 axisAligned == 'Y' || axisAligned == '-Y'){
+                 for(var i = 0; i < shape.vertices.length; i+=3){
+                  x = baseAxisVerts[i+0]
+                  y = baseAxisVerts[i+1]
+                  z = baseAxisVerts[i+2]
+                  if(axisAligned == 'Y' || axisAligned == '-Y'){
+                    if(i<shape.vertices.length/2){
+                      x = 1e5, y = 1e5, z = 1e5
+                    }
+                  }else if(axisAligned == 'X' || axisAligned == '-X'){
+                    if(i>=shape.vertices.length/2){
+                      x = 1e5, y = 1e5, z = 1e5
+                    }
+                  }
+                  shape.vertices[i+0] = x
+                  shape.vertices[i+1] = y
+                  shape.vertices[i+2] = z
+                }
+              }
               renderer.Draw(shape)
             break
-            case 'test shape':
+            case 'scene shape':
+              if(0){
+                var bounding = Coordinates.ShowBounding(shape, shape.renderer, false)
+                
+                if(Coordinates.PointInPoly2D(mx, my, bounding)){
+                  shape.boundingColor = 0xff8800
+                  Coordinates.ShowBounding(shape, renderer, true, -1,true, 0, 5)
+                  if(clickReady && renderer.mouseButton == 1){
+                    clickReady = false
+                    shape.selected = !shape.selected
+                  }
+                }
+                if(shape.selected){ //selected.filter(v=>v==shape.hash).length){
+                  shape.boundingColor = 0x00ff44
+                  Coordinates.ShowBounding(shape, renderer, true, -1,true, 0, 10)
+                }
+              }
               renderer.Draw(shape)
             break
             case 'world grid':
-              if(!axisAligned || axisAligned == '-Z' || axisAligned == 'Z'){
+              if(1||!axisAligned || axisAligned == '-Z' || axisAligned == 'Z'){
                 shape.shapeData.map((subShape, sIdx) => {
                   if(renderer.x + subShape.wx + renderer.offsetX > sp * (cl-1)){
                     subShape.x -= sp * cl
@@ -940,9 +1607,18 @@
                     subShape.z += sp * rw
                   }
                 })
+                if(axisAligned == 'Y' || axisAligned == '-Y'){
+                  shape.roll = 0
+                  shape.pitch = Math.PI/2
+                  shape.yaw = 0
+                }else if(axisAligned == 'X' || axisAligned == '-X'){
+                  shape.roll= Math.PI/2
+                  shape.pitch= 0
+                  shape.yaw=0
+                }else{
+                  shape.roll = shape.pitch = shape.yaw = 0
+                }
                 renderer.Draw(shape)
-              }else{
-                
               }
               break
             case 'background':
@@ -957,40 +1633,15 @@
 
         // main menu
 
-        DrawMainMenu()
+        DrawMainMenus()
+        
         if(hovering){
           document.body.style.cursor = 'pointer'
         }else{
           document.body.style.cursor = 'default'
         }
         
-        if(0){
-          if(ohovering!=hovering){
-            if(hovering){
-              tempRendererProps = {
-                x: renderer.x,
-                y: renderer.y,
-                z: renderer.z,
-                roll: renderer.roll,
-                pitch: renderer.pitch,
-                yaw: renderer.yaw,
-                fov: renderer.fov,
-              }
-            }else{
-              setTimeout(() => {
-                renderer.x = tempRendererProps.x
-                renderer.y = tempRendererProps.y
-                renderer.z = tempRendererProps.z
-                renderer.roll = tempRendererProps.roll
-                renderer.pitch = tempRendererProps.pitch
-                renderer.yaw = tempRendererProps.yaw
-                renderer.fov = tempRendererProps.fov
-              }, 0)
-            }
-          }
-          renderer.useKeys = !hovering
-        }
-        
+        var oAxisAligned = axisAligned
         DrawGyroscope()
       }
 
