@@ -1,8 +1,10 @@
 <!--
   to do
-  * viewport move tool
-  * axis color coding lines in scene
+  ✔ axis color coding lines in scene
+  ✔ viewport move tool
+  * select shapes / selection tool
   * sync grid-size to shape units
+  * cursor which serves as camera orbit point
   * toolbar
     * move
     * scale
@@ -11,7 +13,7 @@
     * apply transformations / rotations / scale
     * mode switching (object/edit)
     * File
-      * add / load / delete shapes
+      ✔ add / load / delete shapes
       * export scene / shape
 -->
 <!DOCTYPE html>
@@ -68,7 +70,7 @@
       var tempRendererProps, menuRows=1
       var menuBarHeight, omx, omy
       var targYaw = renderer.yaw
-      var targX = 0, targY = 0, targZ = 0
+      var targX = 0, targY = 0, targZ = 0, targD = 0
       var targPitch = renderer.pitch
       var homing = 4
       var gyroHoming = 4
@@ -118,9 +120,9 @@
       var mouseUp = false
       window.addEventListener('mousewheel', e => {
         if(e.wheelDelta > 0){
-          targZ /= 1.1
+          targD /= 1.2
         }else{
-          targZ *= 1.1
+          targD *= 1.2
         }
       })
 
@@ -177,8 +179,12 @@
         return ret
       }
 
-      const Import = format => {
-        console.log(`importing format ${format}`)
+      const Import = (format, replace=true) => {
+        var url
+        if(url = prompt(`enter a URL to a shape resource (${format})`)){
+          var map = prompt(`enter a texture URL, optionally, or just hit enter`)
+          LoadTestShape(url, format.toLowerCase(), map, replace)
+        }
       }
 
       const Export = (format, selected=false) => {
@@ -195,17 +201,22 @@
 
         var el = FetchMenuItemByName('File')
         var el2, el3
-        el2 = PushMenuItem(el, 'import resource')
+        el2 = PushMenuItem(el, 'add resource')
         PushMenuItem(el2, 'obj', `Import('obj')`)
-        PushMenuItem(el2, 'custom shape', `Import('custom shape')`)
+        PushMenuItem(el2, 'custom shape', `Import('custom shape', false)`)
         
-        el2 = PushMenuItem(el, 'export resource')
+        el2 = PushMenuItem(el, 'export')
         el3 = PushMenuItem(el2, 'only selected objects')
         PushMenuItem(el3, 'obj', `Export('obj', true)`)
         PushMenuItem(el3, 'custom shape', `Export('custom shape', true)`)
         el3 = PushMenuItem(el2, 'whole scene')
         PushMenuItem(el3, 'obj', `Export('obj', false)`)
         PushMenuItem(el3, 'custom shape', `Export('custom shape', false)`)
+
+        el2 = PushMenuItem(el, 'load resource as new workspace')
+        PushMenuItem(el2, 'obj', `Import('obj')`)
+        PushMenuItem(el2, 'custom shape', `Import('custom shape', true)`)
+        
 
         var el = FetchMenuItemByName('About')
         for(var i = 0; i < 8; i++){
@@ -296,7 +307,7 @@
               omy = my
             }
             
-            targZ -= (omy-my)/zoomHoming
+            targD -= (omy-my)/zoomHoming
             
             omx = mx
             omy = my
@@ -312,30 +323,38 @@
               omy = my
             }
             
-            var vx = 1
-            var vy = 0
-            var vz = 0
-            p = renderer.yaw
-            d = (omx-mx) / moveHoming
-            targX += S(p) * d
-            targZ += C(p) * d
+            var x1 = 0
+            var y1 = 1
+            var z1 = 0
+            var x2 = 1
+            var y2 = 0
+            var z2 = 0
+            p = Math.atan2(y1,z1) + renderer.pitch
+            d = Math.hypot(y1,z1)
+            y1 = S(p) * d
+            z1 = C(p) * d
+            p = Math.atan2(y2,z2) + renderer.pitch
+            d = Math.hypot(y2,z2)
+            y2 = S(p) * d
+            z2 = C(p) * d
+
+            p = Math.atan2(x1,z1) - renderer.yaw
+            d = Math.hypot(x1,z1)
+            x1 = S(p) * d
+            z1 = C(p) * d
+            p = Math.atan2(x2,z2) - renderer.yaw
+            d = Math.hypot(x2,z2)
+            x2 = S(p) * d
+            z2 = C(p) * d
             
-            /*
-            var vx = 0
-            var vy = 1
-            var vz = 0
-            p = Math.atan2(vx, vz) + renderer.yaw
-            d = Math.hypot(vx, vz)
-            vx = S(p) * d * (omy-my) / moveHoming
-            vz = C(p)
-            p = Math.atan2(vy, vz) + renderer.pitch // + Math.PI/2
-            d = Math.hypot(vy, vz)
-            vy = S(p) * d * (omy-my) / moveHoming
-            vz = C(p) * d * (omy-my) / moveHoming
-            targX += vx
-            targY += vy
-            targZ += vz
-            */
+            targX -= x2 * (omx-mx) / moveHoming
+            targY -= y2 * (omx-mx) / moveHoming
+            targZ -= z2 * (omx-mx) / moveHoming
+
+            targX += x1 * (omy-my) / moveHoming
+            targY += y1 * (omy-my) / moveHoming
+            targZ += z1 * (omy-my) / moveHoming
+
             
             omx = mx
             omy = my
@@ -713,9 +732,65 @@
         await flatShader.ConnectGeometry(geometry)
       })
 
+
+      var shaderOptions = [
+        {lighting: {type: 'ambientLight', value: .5}},
+        { uniform: {
+          type: 'phong',
+          value: 0
+        } },
+        { uniform: {
+          type: 'fog',
+          color: 0x333333,
+          value: 4.25,
+        } }
+      ]
+      var gridShader = await Coordinates.BasicShader(renderer, shaderOptions)
+
+      var cl = 1
+      var rw = 2
+      var sp = .02
+      var pointArray = Array(cl*rw).fill().map((v, i) => {
+        x = ((i%cl)-cl/2 + .5) * sp
+        y = ((i/cl|0)-rw/2 + .5) * sp
+        z = 0
+        return [x, y, z]
+      })
+      var geoOptions = {
+        shapeType: 'obj',
+        url: 'https://srmcgann.github.io/coordinates_workshop/assets/axes.obj',
+        map: 'https://srmcgann.github.io/coordinates_workshop/assets/axes_texture.png?2',
+        name: 'axes',
+        alpha: .9,
+        alpha: 1,
+        colorMix: 0,
+      }
+      await Coordinates.LoadGeometry(renderer, geoOptions).then(async (geometry) => {
+        Coordinates.ShapeFromArray(geometry, pointArray).then(async res => {
+          shapes.push(res)
+          await gridShader.ConnectGeometry(res)
+        })
+      })
+
+      const LoadTestShape = async (url, shapeType, map='', replace=true) => {
+        var geoOptions = {
+          shapeType,
+          url,
+          map,
+          name: 'test shape',
+          color: 0xffffff,
+          colorMix: map?0:.33,
+        }
+        if(replace) shapes = shapes.filter(shape => shape.name != 'test shape')
+        await Coordinates.LoadGeometry(renderer, geoOptions).then(async (geometry) => {
+          shapes.push(geometry)
+          await shader.ConnectGeometry(geometry)
+        })
+      }
+
       var geoOptions = {
         shapeType: 'cube',
-        name: 'test cube',
+        name: 'test shape',
         subs: 2,
         color: 0xffffff,
         size: 2,
@@ -725,7 +800,6 @@
         shapes.push(geometry)
         await shader.ConnectGeometry(geometry)
       })
-
 
 
       var cl = 4
@@ -739,7 +813,7 @@
       })
       var geoOptions = {
         shapeType: 'obj',
-        url: 'https://srmcgann.github.io/coordinates_workshop/grid.obj',
+        url: 'https://srmcgann.github.io/coordinates_workshop/assets/grid.obj',
         name: 'world grid',
         alpha: 1,
         color: 0x888888,
@@ -747,19 +821,6 @@
       }
       await Coordinates.LoadGeometry(renderer, geoOptions).then(async (geometry) => {
         Coordinates.ShapeFromArray(geometry, pointArray).then(async res => {
-          var shaderOptions = [
-            {lighting: {type: 'ambientLight', value: .5}},
-            { uniform: {
-              type: 'phong',
-              value: 0
-            } },
-            { uniform: {
-              type: 'fog',
-              color: 0x333333,
-              value: 4.25,
-            } }
-          ]
-          var gridShader = await Coordinates.BasicShader(renderer, shaderOptions)
           shapes.push(res)
           await gridShader.ConnectGeometry(res)
         })
@@ -802,9 +863,13 @@
 
       var clickReady = true
 
-      targX = renderer.x = 0
-      targY = renderer.y = 0
-      targZ = renderer.z = 10
+      targX = renderer.offsetX = 0
+      targY = renderer.offsetX = 0
+      targZ = renderer.offsetX = 0
+      targD = renderer.z = 10
+      renderer.x = 0
+      renderer.y = 0
+      renderer.z = 10
       targYaw = renderer.yaw = -.2
       targPitch = renderer.pitch = -.2
 
@@ -836,7 +901,9 @@
 
         renderer.offsetX += (targX - renderer.offsetX) / homing
         renderer.offsetY += (targY - renderer.offsetY) / homing
-        renderer.offsetz += (targZ - renderer.offsetZ) / homing
+        renderer.offsetZ += (targZ - renderer.offsetZ) / homing
+        
+        renderer.z += (targD - renderer.z) / homing
 
 
         var ohovering = hovering
@@ -851,19 +918,25 @@
 
         shapes.map((shape, sIdx) => {
           switch(shape.name){
+            case 'axes':
+              renderer.Draw(shape)
+            break
+            case 'test shape':
+              renderer.Draw(shape)
+            break
             case 'world grid':
               if(!axisAligned || axisAligned == '-Z' || axisAligned == 'Z'){
                 shape.shapeData.map((subShape, sIdx) => {
-                  if(renderer.x + subShape.wx > sp * (cl-1)){
+                  if(renderer.x + subShape.wx + renderer.offsetX > sp * (cl-1)){
                     subShape.x -= sp * cl
                   }
-                  if(renderer.x + subShape.wx < -sp * (cl-1)){
+                  if(renderer.x + subShape.wx + renderer.offsetX < -sp * (cl-1)){
                     subShape.x += sp * cl
                   }
-                  if(renderer.z + subShape.wz > sp * (rw-1)){
+                  if(renderer.z + subShape.wz + renderer.offsetZ > sp * (rw-1)){
                     subShape.z -= sp * rw
                   }
-                  if(renderer.z + subShape.wz < -sp * (rw-1)){
+                  if(renderer.z + subShape.wz + renderer.offsetZ < -sp * (rw-1)){
                     subShape.z += sp * rw
                   }
                 })
@@ -886,7 +959,6 @@
 
         DrawMainMenu()
         if(hovering){
-          console.log('hm')
           document.body.style.cursor = 'pointer'
         }else{
           document.body.style.cursor = 'default'
