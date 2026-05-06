@@ -3,6 +3,8 @@
   ✔ axis color coding lines in scene
   ✔ viewport move tool
   * select shapes / selection tool
+  * gyro cluster moveable w/handle
+  * tooltips
   * sync grid-size to shape units
   * cursor which serves as camera orbit point
   * toolbar
@@ -245,12 +247,21 @@
       var orientationInProgress = false
       var zoomInProgress = false
       var moveInProgress = false
+      var gyroClusterMoveInProgress = false
       var axisAligned = ''
       var oAxisAligned = ''
       var camFocusX = 0
       var camFocusY = 0
       var camFocusZ = 0
+      var gyroClusterOffsetX = 0
+      var gyroClusterOffsetY = 0
+      var isometric = false
       var version = 1.1
+      var scrollGrid = false
+      var showGrid = true
+      var gyroSize = 40
+      var maxGyroSize = 100
+      var minGyroSize = 25
       
       var samples = [
         {
@@ -775,7 +786,6 @@
           if(state && keyTimers[keyCode] < renderer.t){
             switch(keyCode){
               case 32:
-                console.log('spacebar')
                 keyTimers[keyCode] = renderer.t + keyTimerInterval
               break
               case 46:
@@ -838,6 +848,7 @@
         orientationInProgress = false
         zoomInProgress = false
         moveInProgress = false
+        gyroClusterMoveInProgress = false
       })
 
       window.addEventListener('mousemove', e => {
@@ -888,11 +899,13 @@
         if(!url){
           url = prompt(`enter a URL to a shape resource (${format})`)
         }
-        if(!map){
-          map = prompt(`enter a texture URL, optionally, or just hit enter`)
+        if(url){
+          if(!map){
+            map = prompt(`enter a texture URL, optionally, or just hit enter`)
+          }
+          if(map == -1) map = ''
+          LoadSceneShape(url, format.toLowerCase(), map, replace)
         }
-        if(map == -1) map = ''
-        if(url) LoadSceneShape(url, format.toLowerCase(), map, replace)
       }
 
       const Export = (format, selected=false) => {
@@ -1099,7 +1112,37 @@
           url: 'https://srmcgann.github.io/coordinates_workshop/assets/zoom.png',
           loaded: false,
           resource: new Image()
-        }
+        },
+        {
+          name: 'grid png',
+          url: 'https://srmcgann.github.io/coordinates_workshop/assets/grid.png',
+          loaded: false,
+          resource: new Image()
+        },
+        {
+          name: 'no-grid png',
+          url: 'https://srmcgann.github.io/coordinates_workshop/assets/no-grid.png',
+          loaded: false,
+          resource: new Image()
+        },
+        {
+          name: 'isometric png',
+          url: 'https://srmcgann.github.io/coordinates_workshop/assets/isometric.png',
+          loaded: false,
+          resource: new Image()
+        },
+        {
+          name: 'perspective png',
+          url: 'https://srmcgann.github.io/coordinates_workshop/assets/perspective.png',
+          loaded: false,
+          resource: new Image()
+        },
+        {
+          name: 'gyro cluster handle png',
+          url: 'https://srmcgann.github.io/coordinates_workshop/assets/gyroClusterHandle.png',
+          loaded: false,
+          resource: new Image()
+        },
       ]
 
       assets.map((asset, aIdx) => {
@@ -1115,25 +1158,106 @@
         var fs
         var gyroYaw = renderer.yaw
         var gyroPitch = renderer.pitch
-        var gyroSize = 40
-        var gyroPosX = c.width - gyroSize * 2
-        var gyroPosY = gyroSize * 2 + menuRows * menuBarHeight + secondaryMenuRows * secondaryMenuBarHeight
+        var gyroPosX = c.width - gyroSize * 2 + gyroClusterOffsetX
+        var gyroPosY = gyroSize * 2 + menuRows *
+            menuBarHeight + secondaryMenuRows *
+            secondaryMenuBarHeight + gyroClusterOffsetY
         var sd =32
         var gyrohover = false
         var zoomhover = false
         var movehover = false
+        var gridhover = false
+        var isohover = false
+        var inchover = false
+        var dechover = false
 
         var zoomPosX = gyroPosX + gyroSize/1.25
         var zoomPosY = gyroPosY + gyroSize * 1.75
         var zoomSize = gyroSize / 2.5
+        var isoSize = gyroSize / 2.5
+        var gridSize = gyroSize / 2.5
           
         var movePosX = gyroPosX + gyroSize/1.25
         var movePosY = gyroPosY + gyroSize * 1.75 + zoomSize * 3
         var moveSize = gyroSize / 2.5
         
-        if(!(moveInProgress || zoomInProgress) && 
+        var isoPosX = gyroPosX + gyroSize/1.25
+        var isoPosY = gyroPosY + gyroSize * 1.75 + zoomSize * 6
+        var isoSize = gyroSize / 2.5
+        
+        var gridPosX = gyroPosX + gyroSize/1.25
+        var gridPosY = gyroPosY + gyroSize * 1.75 + zoomSize * 9
+        var gridSize = gyroSize / 2.5
+        
+        var incPosX = gyroPosX + gyroSize * 1.2
+        var incPosY = gyroPosY - gyroSize
+        var incSize = gyroSize / 6
+        
+        var decPosX = gyroPosX - gyroSize * 1.2
+        var decPosY = gyroPosY - gyroSize
+        var decSize = gyroSize / 6
+        
+        var gyroClusterHandle = [
+          [gyroPosX - gyroSize*1.45, gyroPosY - gyroSize*1.33],
+          [gyroPosX - gyroSize*1.45, gyroPosY - gyroSize*1.75],
+          [gyroPosX + gyroSize*1.45, gyroPosY - gyroSize*1.75],
+          [gyroPosX + gyroSize*1.45, gyroPosY - gyroSize*1.33],
+        ]
+        var gyroClusterBody = [
+          [gyroPosX - gyroSize*1.45, gyroPosY - gyroSize*1.33],
+          [gyroPosX - gyroSize*1.45, gyroPosY + gyroSize*.8],
+          [gyroPosX + gyroSize/8, gyroPosY + gyroSize*1.6],
+          [gyroPosX + gyroSize/8, gyroPosY + gyroSize*6],
+          [gyroPosX + gyroSize*1.45, gyroPosY + gyroSize*6],
+          [gyroPosX + gyroSize*1.45, gyroPosY - gyroSize*1.33],
+        ]
+        var gyroHandleHover = Coordinates.PointInPoly2D(mx, my, gyroClusterHandle)
+        if(gyroClusterMoveInProgress || gyroHandleHover ||
+           Coordinates.PointInPoly2D(mx, my, gyroClusterBody) ||
+           orientationInProgress || moveInProgress || zoomInProgress){
+          if(gyroHandleHover || gyroClusterMoveInProgress){
+            if(clickReady && renderer.mouseButton == 1){
+              clickReady = false
+              omx = mx
+              omy = my
+              gyroClusterMoveInProgress = true
+            }
+            if(gyroClusterMoveInProgress){
+              gyroClusterOffsetX += mx - omx
+              gyroClusterOffsetY += my - omy
+              omx = mx
+              omy = my
+            }
+          }
+          ctx.lineWidth = gyroSize/20
+          ctx.strokeStyle = '#fff2'
+          ctx.fillStyle = gyroHandleHover ? '#8868' : '#8862'
+          ctx.beginPath()
+          gyroClusterHandle.forEach(v=>ctx.lineTo(v[0],v[1]))
+          ctx.stroke()
+          ctx.fill()
+          ctx.globalAlpha = gyroHandleHover ? .5 : .25
+          var img = assets.filter(v => v.name == 'gyro cluster handle png')[0].resource
+          x = gyroPosX - gyroSize*1.45
+          y = gyroPosY - gyroSize*1.75
+          var wd = (gyroPosX + gyroSize*1.45) - x
+          var hgt = (gyroPosY - gyroSize*1.33) - y
+          ctx.drawImage(img, x, y, wd, hgt)
+          ctx.globalAlpha = 1
+          
+          
+          ctx.strokeStyle = '#fff2'
+          ctx.fillStyle = '#0002'
+          ctx.beginPath()
+          gyroClusterBody.forEach(v=>ctx.lineTo(v[0],v[1]))
+          ctx.closePath()
+          ctx.fill()
+          ctx.stroke()
+        }
+        
+        
+        if(clickReady && !(moveInProgress || zoomInProgress) && 
            Math.hypot(gyroPosX-mx, gyroPosY-my) < gyroSize*1.25 || orientationInProgress){
-           console.log(clickReady)
           gyrohover = true
           ctx.beginPath()
           for(var j=0; j<sd; j++){
@@ -1143,7 +1267,7 @@
           }
           ctx.fillStyle = '#fff3'
           ctx.fill()
-        }else if(!(moveInProgress || orientationInProgress) &&
+        }else if(clickReady && !(moveInProgress || orientationInProgress) &&
                    Math.hypot(zoomPosX-mx, zoomPosY-my) < zoomSize*1.25 || zoomInProgress){
           zoomhover = true
           if(zoomhover && renderer.mouseButton == 1 || zoomInProgress){
@@ -1159,7 +1283,7 @@
             omx = mx
             omy = my
           }
-        }else if(!(zoomInProgress || orientationInProgress) &&
+        }else if(clickReady && !(zoomInProgress || orientationInProgress) &&
                    Math.hypot(movePosX-mx, movePosY-my) < moveSize*1.25 || moveInProgress){
           movehover = true
           if(movehover && renderer.mouseButton == 1 || moveInProgress){
@@ -1206,6 +1330,52 @@
             omx = mx
             omy = my
           }
+        }else if(clickReady && !(moveInProgress || zoomInProgress || orientationInProgress) &&
+                   Math.hypot(isoPosX-mx, isoPosY-my) < isoSize*1.25){
+          isohover = true
+          if(isohover && renderer.mouseButton == 1 && clickReady){
+            clickReady = false
+            isometric = !isometric
+          }
+        }else if(clickReady && !(moveInProgress || zoomInProgress || orientationInProgress) &&
+                   Math.hypot(gridPosX-mx, gridPosY-my) < gridSize*1.25){
+          gridhover = true
+          if(gridhover && renderer.mouseButton == 1 && clickReady){
+            clickReady = false
+            showGrid = !showGrid
+          }
+        }else if(clickReady && !(moveInProgress || zoomInProgress || orientationInProgress) &&
+                   Math.hypot(incPosX-mx, incPosY-my) < incSize*1.25){
+          inchover = true
+          if(inchover && renderer.mouseButton == 1 && clickReady){
+            gyroSize *= 1.015
+            gyroSize = Math.min(maxGyroSize, gyroSize)
+            var gs = gyroSize
+            var gpx = c.width - gyroSize * 2 + gyroClusterOffsetX
+            var gpy = gyroSize * 2 + menuRows *
+                menuBarHeight + secondaryMenuRows *
+                secondaryMenuBarHeight + gyroClusterOffsetY
+
+            gyroClusterOffsetX += mx - (gpx + gs * 1.2)
+            gyroClusterOffsetY += my - (gpy - gs)
+          }
+        }else if(clickReady && !(moveInProgress || zoomInProgress || orientationInProgress) &&
+                   Math.hypot(decPosX-mx, decPosY-my) < decSize*1.25){
+          dechover = true
+          if(dechover && renderer.mouseButton == 1 && clickReady){
+            gyroSize /= 1.015
+            gyroSize = Math.max(minGyroSize, gyroSize)
+            var gs = gyroSize
+            var gpx = c.width - gyroSize * 2 + gyroClusterOffsetX
+            var gpy = gyroSize * 2 + menuRows *
+                menuBarHeight + secondaryMenuRows *
+                secondaryMenuBarHeight + gyroClusterOffsetY
+
+            gyroClusterOffsetX += mx - (gpx - gs * 1.2)
+            gyroClusterOffsetY += my- (gpy - gs)
+          }
+        }else if(clickReady && renderer.mouseButton == 1){
+          clickReady = false
         }
         
         ctx.beginPath()
@@ -1235,6 +1405,55 @@
         ctx.drawImage(img, movePosX-moveSize, movePosY-moveSize, moveSize*2, moveSize*2)
         ctx.globalAlpha = 1
         
+        ctx.beginPath()
+        for(var j=0; j<sd; j++){
+          x = isoPosX + S(p=Math.PI*2/sd*j) * isoSize * 1.25
+          y = isoPosY + C(p) * isoSize * 1.25
+          ctx.lineTo(x, y)
+        }
+        ctx.fillStyle = isohover ? '#fff3' : '#222'
+        ctx.fill()
+        ctx.globalAlpha = .66
+        var img = assets.filter(v => v.name == (isometric ? 'isometric png' : 'perspective png'))[0].resource
+        ctx.drawImage(img, isoPosX-isoSize, isoPosY-isoSize, isoSize*2, isoSize*2)
+        ctx.globalAlpha = 1
+        
+        ctx.beginPath()
+        for(var j=0; j<sd; j++){
+          x = gridPosX + S(p=Math.PI*2/sd*j) * gridSize * 1.25
+          y = gridPosY + C(p) * gridSize * 1.25
+          ctx.lineTo(x, y)
+        }
+        ctx.fillStyle = gridhover ? '#fff3' : '#222'
+        ctx.fill()
+        ctx.globalAlpha = .66
+        var img = assets.filter(v => v.name == (showGrid ? 'grid png' : 'no-grid png'))[0].resource
+        ctx.drawImage(img, gridPosX-gridSize, gridPosY-gridSize, gridSize*2, gridSize*2)
+        ctx.globalAlpha = 1
+        
+        ctx.font = (fs=gyroSize/1.5) + 'px "Source Sans 3"'
+        ctx.textAlign = 'center'
+        ctx.beginPath()
+        for(var j=0; j<sd; j++){
+          x = incPosX + S(p=Math.PI*2/sd*j) * incSize * 1.25
+          y = incPosY + C(p) * incSize * 1.25
+          ctx.lineTo(x, y)
+        }
+        ctx.fillStyle = inchover ? '#fff3' : '#222'
+        ctx.fill()
+        ctx.fillStyle = '#ffa'
+        ctx.fillText('+', incPosX, incPosY+fs/3)
+
+        ctx.beginPath()
+        for(var j=0; j<sd; j++){
+          x = decPosX + S(p=Math.PI*2/sd*j) * decSize * 1.25
+          y = decPosY + C(p) * decSize * 1.25
+          ctx.lineTo(x, y)
+        }
+        ctx.fillStyle = dechover ? '#fff3' : '#222'
+        ctx.fill()
+        ctx.fillStyle = '#ffa'
+        ctx.fillText('-', decPosX, decPosY+fs/3)
         
         var tx, ty, tz
         var components = [
@@ -1666,6 +1885,13 @@
             map: refTexture,
             value: .3
           } },
+          { uniform: {
+            type: 'refraction2',
+            angleOfRefraction: .2,
+            enabled: true,
+            map: refTexture,
+            value: .5
+          } },
         ]
         var shader = await Coordinates.BasicShader(renderer, shaderOptions)
         var geoOptions = {
@@ -1815,33 +2041,35 @@
         mx = renderer.mouseX
         my = renderer.mouseY
         
-        renderer.fov = axisAligned ? 1e5 : ofov
+        renderer.fov = (axisAligned || isometric) ? 1e5 : ofov
 
         shapes.map((shape, sIdx) => {
           switch(shape.name){
             case 'axes':
-              if(axisAligned != oAxisAligned ||
-                 axisAligned == 'X' || axisAligned == '-X' ||
-                 axisAligned == 'Y' || axisAligned == '-Y'){
-                 for(var i = 0; i < shape.vertices.length; i+=3){
-                  x = baseAxisVerts[i+0]
-                  y = baseAxisVerts[i+1]
-                  z = baseAxisVerts[i+2]
-                  if(axisAligned == 'Y' || axisAligned == '-Y'){
-                    if(i<shape.vertices.length/2){
-                      x = 1e5, y = 1e5, z = 1e5
+              if(showGrid){
+                if(axisAligned != oAxisAligned ||
+                   axisAligned == 'X' || axisAligned == '-X' ||
+                   axisAligned == 'Y' || axisAligned == '-Y'){
+                   for(var i = 0; i < shape.vertices.length; i+=3){
+                    x = baseAxisVerts[i+0]
+                    y = baseAxisVerts[i+1]
+                    z = baseAxisVerts[i+2]
+                    if(axisAligned == 'Y' || axisAligned == '-Y'){
+                      if(i<shape.vertices.length/2){
+                        x = 1e5, y = 1e5, z = 1e5
+                      }
+                    }else if(axisAligned == 'X' || axisAligned == '-X'){
+                      if(i>=shape.vertices.length/2){
+                        x = 1e5, y = 1e5, z = 1e5
+                      }
                     }
-                  }else if(axisAligned == 'X' || axisAligned == '-X'){
-                    if(i>=shape.vertices.length/2){
-                      x = 1e5, y = 1e5, z = 1e5
-                    }
+                    shape.vertices[i+0] = x
+                    shape.vertices[i+1] = y
+                    shape.vertices[i+2] = z
                   }
-                  shape.vertices[i+0] = x
-                  shape.vertices[i+1] = y
-                  shape.vertices[i+2] = z
                 }
+                renderer.Draw(shape)
               }
-              renderer.Draw(shape)
             break
             case 'scene shape':
               if(0){
@@ -1860,37 +2088,40 @@
                   Coordinates.ShowBounding(shape, renderer, true, -1,true, 0, 10)
                 }
               }
+              console.log(shape)
               renderer.Draw(shape)
             break
             case 'world grid':
-              if(0){
-                shape.shapeData.map((subShape, sIdx) => {
-                  if(renderer.x + subShape.wx + renderer.offsetX > sp * (cl-1)){
-                    subShape.x -= sp * cl
-                  }
-                  if(renderer.x + subShape.wx + renderer.offsetX < -sp * (cl-1)){
-                    subShape.x += sp * cl
-                  }
-                  if(renderer.z + subShape.wz + renderer.offsetZ > sp * (rw-1)){
-                    subShape.z -= sp * rw
-                  }
-                  if(renderer.z + subShape.wz + renderer.offsetZ < -sp * (rw-1)){
-                    subShape.z += sp * rw
-                  }
-                })
+              if(showGrid){
+                if(scrollGrid){
+                  shape.shapeData.map((subShape, sIdx) => {
+                    if(renderer.x + subShape.wx + renderer.offsetX > sp * (cl-1)){
+                      subShape.x -= sp * cl
+                    }
+                    if(renderer.x + subShape.wx + renderer.offsetX < -sp * (cl-1)){
+                      subShape.x += sp * cl
+                    }
+                    if(renderer.z + subShape.wz + renderer.offsetZ > sp * (rw-1)){
+                      subShape.z -= sp * rw
+                    }
+                    if(renderer.z + subShape.wz + renderer.offsetZ < -sp * (rw-1)){
+                      subShape.z += sp * rw
+                    }
+                  })
+                }
+                if(axisAligned == 'Y' || axisAligned == '-Y'){
+                  shape.roll = 0
+                  shape.pitch = Math.PI/2
+                  shape.yaw = 0
+                }else if(axisAligned == 'X' || axisAligned == '-X'){
+                  shape.roll= Math.PI/2
+                  shape.pitch= 0
+                  shape.yaw=0
+                }else{
+                  shape.roll = shape.pitch = shape.yaw = 0
+                }
+                renderer.Draw(shape)
               }
-              if(axisAligned == 'Y' || axisAligned == '-Y'){
-                shape.roll = 0
-                shape.pitch = Math.PI/2
-                shape.yaw = 0
-              }else if(axisAligned == 'X' || axisAligned == '-X'){
-                shape.roll= Math.PI/2
-                shape.pitch= 0
-                shape.yaw=0
-              }else{
-                shape.roll = shape.pitch = shape.yaw = 0
-              }
-              renderer.Draw(shape)
             break
             case 'background':
               renderer.Draw(shape)
