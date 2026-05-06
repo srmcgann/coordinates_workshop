@@ -31,9 +31,174 @@
         color: #fff;
         font-size: 20px;
       }
+      .modal{
+        position: fixed;
+        background: #000e;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        margin: 0;
+        padding: 0;
+        display: none;
+        z-index: 1000;
+      }
+      .skyboxPickerFrame[focus]{
+        outline: none;
+      }
+      .skyboxPickerFrame{
+        width: 100vw;
+        height: 100vh;
+        margin: 0;
+        border: none;
+      }
+      .closeButton{
+        width: 100px;
+        font-family: 'Source Sans 3';
+        font-size: 16px;
+        border-radius: 10px;
+        background: #422;
+        color: #f88;
+        position: absolute;
+        top: 0px;
+        right: 20px;
+        cursor: pointer;
+      }
+      .header{
+        padding: 5px;
+        min-height: 16px;
+        line-height: 1em;
+        background: linear-gradient(90deg, #000, #468, #40f);
+        border-bottom: 1px solid #4688;
+      }
+      #main{
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-evenly;
+      }
+      .thumb{
+        width: 400px;
+        height: 300px;
+        background-repeat: no-repeat;
+        background-size: cover;
+        background-position: center center;
+        background-color: transparent;
+        border-radius: 10px;
+        border: 1px solid #4688;
+        margin: 10px;
+        cursor: pointer;
+        align-self: flex-start;
+      }
     </style>
   </head>
   <body>
+    <div class="modal" id="skyboxPicker">
+      <div class="header">
+        SKYBOX PICKER
+      </div>
+      <div id="main">loading...</div>
+      <script type="module">
+
+        var fileList = [
+          "https://srmcgann.github.io/skyboxes/HDRI/1.jpg",
+          "https://srmcgann.github.io/skyboxes/HDRI/2.jpg",
+          "https://srmcgann.github.io/skyboxes/HDRI/3.jpg",
+          "https://srmcgann.github.io/skyboxes/HDRI/4.jpg",
+          "https://srmcgann.github.io/skyboxes/HDRI/5.jpg",
+          "https://srmcgann.github.io/skyboxes/HDRI/6.jpg",
+          "https://srmcgann.github.io/skyboxes/HDRI/7.jpg",
+          "https://srmcgann.github.io/skyboxes/HDRI/8.jpg",
+          "https://srmcgann.github.io/skyboxes/HDRI/9.jpg",
+          "https://srmcgann.github.io/skyboxes/HDRI/10.jpg",
+          "https://srmcgann.github.io/skyboxes/HDRI/11.jpg",
+          "https://srmcgann.github.io/skyboxes/HDRI/12.jpg",
+          "https://srmcgann.github.io/skyboxes/HDRI/13.jpg",
+          "https://srmcgann.github.io/skyboxes/HDRI/14.jpg",
+          "https://srmcgann.github.io/skyboxes/HDRI/15.jpg",
+          "https://srmcgann.github.io/skyboxes/HDRI/16.jpg",
+          "https://srmcgann.github.io/skyboxes/HDRI/17.jpg",
+          "https://srmcgann.github.io/skyboxes/HDRI/18.jpg",
+          "https://srmcgann.github.io/skyboxes/HDRI/19.jpg",
+          "https://srmcgann.github.io/skyboxes/HDRI/20.jpg",
+          "https://srmcgann.github.io/skyboxes/HDRI/21.jpg",
+          "https://srmcgann.github.io/skyboxes/HDRI/22.jpg",
+          "https://srmcgann.github.io/skyboxes/HDRI/23.jpg",
+          "https://srmcgann.github.io/skyboxes/HDRI/24.jpg",
+          "https://srmcgann.github.io/skyboxes/HDRI/25.jpg",
+          "https://srmcgann.github.io/skyboxes/HDRI/26.jpg",
+          "https://srmcgann.github.io/skyboxes/HDRI/27.jpg",
+          "https://srmcgann.github.io/skyboxes/HDRI/28.jpg",
+          "https://srmcgann.github.io/skyboxes/HDRI/29.jpg",
+          "https://srmcgann.github.io/skyboxes/HDRI/29b.jpg",
+          "https://srmcgann.github.io/skyboxes2/HDRI/1.jpg",
+          "https://srmcgann.github.io/skyboxes2/HDRI/2.png",
+          "https://srmcgann.github.io/skyboxes2/HDRI/bricks.png",
+          "https://srmcgann.github.io/skyboxes2/HDRI/dodecahedron.png",
+          "https://srmcgann.github.io/skyboxes2/HDRI/milkyWay.jpg",
+          "https://srmcgann.github.io/skyboxes2/HDRI/nebula.jpg",
+          "https://srmcgann.github.io/skyboxes2/HDRI/nebula2.jpg",
+          "https://srmcgann.github.io/skyboxes2/HDRI/redwalk.jpg",
+          "https://srmcgann.github.io/skyboxes2/HDRI/stars.jpg",
+          "https://srmcgann.github.io/skyboxes2/HDRI/stars2.jpg",
+          "https://srmcgann.github.io/skyboxes2/HDRI/test.png",
+          "https://srmcgann.github.io/skyboxes3/HDRI/alices.jpg",
+          "https://srmcgann.github.io/skyboxes3/HDRI/angels.jpg",
+          "https://srmcgann.github.io/skyboxes3/HDRI/brutalism1.jpg",
+          "https://srmcgann.github.io/skyboxes3/HDRI/creepy_mansion.jpg",
+          "https://srmcgann.github.io/skyboxes3/HDRI/doommaze.jpg",
+          "https://srmcgann.github.io/skyboxes3/HDRI/fantasy1.jpg",
+          "https://srmcgann.github.io/skyboxes3/HDRI/maze_bold_dark.png",
+          "https://srmcgann.github.io/skyboxes3/HDRI/maze_bold_light.png",
+          "https://srmcgann.github.io/skyboxes3/HDRI/maze_bold_red.jpg",
+          "https://srmcgann.github.io/skyboxes3/HDRI/maze_bold_teal.png",
+          "https://srmcgann.github.io/skyboxes3/HDRI/maze_dark.png",
+          "https://srmcgann.github.io/skyboxes3/HDRI/maze_dark_large.png",
+          "https://srmcgann.github.io/skyboxes3/HDRI/maze_light.png",
+          "https://srmcgann.github.io/skyboxes3/HDRI/maze_light_large.png",
+          "https://srmcgann.github.io/skyboxes3/HDRI/pano1.jpg",
+          "https://srmcgann.github.io/skyboxes3/HDRI/pano2.jpg",
+          "https://srmcgann.github.io/skyboxes3/HDRI/pano3.jpg",
+          "https://srmcgann.github.io/skyboxes3/HDRI/pinkCluds.jpg",
+          "https://srmcgann.github.io/skyboxes3/HDRI/pinkCluds2.jpg",
+          "https://srmcgann.github.io/skyboxes3/HDRI/redCluds.jpg",
+          "https://srmcgann.github.io/skyboxes3/HDRI/skymaze.jpg",
+          "https://srmcgann.github.io/skyboxes3/HDRI/space.jpg",
+          "https://srmcgann.github.io/skyboxes3/HDRI/space4.jpg",
+          "https://srmcgann.github.io/skyboxes3/HDRI/spacemaze1.jpg",
+          "https://srmcgann.github.io/skyboxes3/HDRI/sparkleCluds.jpg",
+          "https://srmcgann.github.io/skyboxes3/HDRI/treehouses.jpg",
+          "https://srmcgann.github.io/skyboxes3/HDRI/ultraclouds1.jpg",
+          "https://srmcgann.github.io/skyboxes3/HDRI/ultraclouds2.jpg",
+          "https://srmcgann.github.io/skyboxes3/HDRI/ultraclouds3.jpg",
+          "https://srmcgann.github.io/skyboxes3/HDRI/ultraclouds4.jpg",
+          "https://srmcgann.github.io/skyboxes3/HDRI/ultracloudsbase.jpg",
+          "https://srmcgann.github.io/skyboxes4/HDRI/brutalism2.jpg",
+          "https://srmcgann.github.io/skyboxes4/HDRI/brutalism2_maze.jpg",
+          "https://srmcgann.github.io/skyboxes5/HDRI/everest.jpg",
+          "https://srmcgann.github.io/skyboxes5/HDRI/valley1.jpg",
+          "https://srmcgann.github.io/skyboxes7/HDRI/nebugrid.jpg",
+          "https://srmcgann.github.io/skyboxes7/HDRI/quickgrid.png",
+          "https://srmcgann.github.io/skyboxes7/HDRI/quickgrid_transparent.png",
+          "https://srmcgann.github.io/skyboxes7/HDRI/space.jpg"
+        ]
+
+
+        var main = document.querySelector('#main')
+        main.innerHTML = ''
+
+        fileList.forEach((item, idx) => {
+          var el = document.createElement('div')
+          el.className = 'thumb'
+          el.title = item
+          var tidx = ((idx+1)+'').padStart(3, '0')
+          el.style.backgroundImage = 'url(./thumbs/thumb' + tidx + '.png)'
+          el.onclick = () => {
+            SetSkybox(item)
+          }
+          main.appendChild(el)
+        })
+      </script>
+    </div>
     <script type="module">
     
       var rsz
@@ -44,7 +209,7 @@
       }
 
       import * as Coordinates from
-      "https://cantelope42.github.io/temppp/coordinates.js"
+      "https://srmcgann.github.io/Coordinates/coordinates.min.js"
 
       var rendererOptions = {
         ambientLight: .5, margin: 0, clearColor: 0x404040,
@@ -110,7 +275,7 @@
         },
         {
           url:  'https://srmcgann.github.io/objs/axe.obj',
-          map:  -1,
+          map:  'https://srmcgann.github.io/Coordinates/custom shapes/new axe/axe texture.jpg',
           name: 'axe'
         },
         {
@@ -184,46 +349,11 @@
           name: 'elephant'
         },
         {
-          url:  'https://srmcgann.github.io/objs/emoji_eyes.obj',
-          map:  '',
-          name: ''
-        },
-        {
-          url:  'https://srmcgann.github.io/objs/emoji_face.obj',
-          map:  '',
-          name: ''
-        },
-        {
-          url:  'https://srmcgann.github.io/objs/face_cursor.obj',
-          map:  '',
-          name: ''
-        },
-        {
-          url:  'https://srmcgann.github.io/objs/fish.obj',
-          map:  '',
-          name: ''
-        },
-        {
-          url:  'https://srmcgann.github.io/objs/frame_weighted_normals.obj',
-          map:  '',
-          name: ''
-        },
-        {
-          url:  'https://srmcgann.github.io/objs/funnel_fatboi.obj',
-          map:  '',
-          name: ''
-        },
-        {
-          url:  'https://srmcgann.github.io/objs/game_border.obj',
-          map:  '',
-          name: ''
-        },
-        {
           url:  'https://srmcgann.github.io/objs/gear.obj',
           map:  '',
-          name: ''
+          name: 'gear'
         },
-        {
+        /*{
           url:  'https://srmcgann.github.io/objs/gem.obj',
           map:  '',
           name: ''
@@ -623,6 +753,7 @@
           map:  '',
           name: ''
         }
+        */
       ]
       
       var keys = Array(256).fill(false)
@@ -669,7 +800,8 @@
       }
       rsz()
 
-      var refTexture = 'https://srmcgann.github.io/Coordinates/resources/million_particle_grid_equirectangular_po2.png'
+      //var refTexture = 'https://srmcgann.github.io/Coordinates/resources/million_particle_grid_equirectangular_po2.png'
+      var refTexture = 'https://srmcgann.github.io/Coordinates/resources/flat_grey.jpg'
 
       var S = Math.sin
       var C = Math.cos
@@ -768,6 +900,93 @@
         console.log(`Exporting to format ${format}, ${selected?'selected only':'whole scene'}`)
       }
       
+      const CloseModals = () => {
+        var el = document.querySelectorAll('.modal')[0]
+        el.childNodes.forEach(node=>node.remove())
+        el.style.display = 'none'
+      }
+      
+      window.SetSkybox = async map => {
+        shapes = shapes.filter(v=>v.name != 'background')
+        var geoOptions = {
+          shapeType: 'dodecahedron',
+          name: 'background',
+          sphereize: 1,
+          subs: 4,
+          map,
+          size: 5e3,
+          colorMix: 0,
+        }
+        await Coordinates.LoadGeometry(renderer, geoOptions).then(async (geometry) => {
+          shapes.push(geometry)
+          await backgroundShader.ConnectGeometry(geometry)
+        })
+        CloseModals()
+        console.log(shader)
+        shader.datasets.map(dataset => {
+          if(typeof dataset?.optionalUniforms != 'undefined'){
+            dataset.optionalUniforms.filter(v=>v.name=='reflection').map(v=>{
+              v.map = map
+              v.rebindTextures = true
+            })
+          }
+        })
+        shader.datasets.map(dataset => {
+          if(typeof dataset?.optionalUniforms != 'undefined'){
+            dataset.optionalUniforms.filter(v=>v.name=='refraction2').map(v=>{
+              v.map = map
+              v.rebindTextures = true
+            })
+          }
+        })
+        shapes.map((shape, sIdx) => {
+          shape.shader.datasets.map(dataset => {
+            if(typeof dataset?.optionalUniforms != 'undefined'){
+              dataset.optionalUniforms.filter(v=>v.name=='reflection').map(v=>{
+                v.map = map
+                v.rebindTextures = true
+              })
+              dataset.optionalUniforms.filter(v=>v.name=='refraction2').map(v=>{
+                v.map = map
+                v.rebindTextures = true
+              })
+            }
+          })
+        })
+      }
+      
+      const ClearSkybox = () => {
+        shapes = shapes.filter(v=>v.name != 'background')
+      }
+      
+      const SkyboxPicker = () => {
+        var el = document.querySelectorAll('.modal')[0]
+        el.style.display = 'block'
+        el.style.overflowY = 'auto'
+        var closeButton = document.createElement('button')
+        closeButton.className = 'closeButton'
+        closeButton.innerHTML = 'close'
+        closeButton.onclick = () => {
+          CloseModals()
+        }
+        el.appendChild(closeButton)
+      }
+      
+      const ClearAll = () => {
+        targX = renderer.offsetX = 0
+        targY = renderer.offsetX = 0
+        targZ = renderer.offsetX = 0
+        targD = renderer.z = 10
+        axisAligned = ''
+        renderer.x = 0
+        renderer.y = 0
+        renderer.z = 10
+        targYaw = renderer.yaw = -.2
+        targPitch = renderer.pitch = -.2
+        shapes = shapes.filter(shape => shape.name != 'scene shape')
+        ClearSkybox()
+      }
+      
       const InitMenus = () => {
         root = PushMenuItem(menus, 'root')
         PushMenuItem(root, 'File')
@@ -777,6 +996,7 @@
 
         var el = FetchMenuItemByName('File', menus)
         var el2, el3
+        el2 = PushMenuItem(el, 'new scene', `ClearAll()`)
         el2 = PushMenuItem(el, 'load resource as new workspace')
           PushMenuItem(el2, 'obj', `Import('obj')`)
           PushMenuItem(el2, 'custom shape', `Import('custom shape', true)`)
@@ -826,26 +1046,29 @@
         })
         
         root = PushMenuItem(secondaryMenus, 'root')
-        PushMenuItem(root, 'mode')
-        PushMenuItem(root, 'view')
-        PushMenuItem(root, 'select')
-        PushMenuItem(root, 'add')
-        PushMenuItem(root, 'object')
+          PushMenuItem(root, 'mode')
+          PushMenuItem(root, 'view')
+          PushMenuItem(root, 'select')
+          PushMenuItem(root, 'add')
+          PushMenuItem(root, 'object')
         
         var el = FetchMenuItemByName('mode', secondaryMenus)
-        el2 = PushMenuItem(el, 'object')
-        el2 = PushMenuItem(el, 'edit')
-        el2 = PushMenuItem(el, 'sculpt')
+          el2 = PushMenuItem(el, 'object')
+          el2 = PushMenuItem(el, 'edit')
+          el2 = PushMenuItem(el, 'sculpt')
 
         var el = FetchMenuItemByName('add', secondaryMenus)
-        el2 = PushMenuItem(el, 'tetrahedron', `LoadSceneShape('', 'tetrahedron')`)
-        el2 = PushMenuItem(el, 'cube', `LoadSceneShape('', 'cube')`)
-        el2 = PushMenuItem(el, 'octahedron', `LoadSceneShape('', 'octahedron')`)
-        el2 = PushMenuItem(el, 'dodecahedron', `LoadSceneShape('', 'dodecahedron')`)
-        el2 = PushMenuItem(el, 'icosahedron', `LoadSceneShape('', 'icosahedron')`)
-        el2 = PushMenuItem(el, 'sphere', `LoadSceneShape('', 'sphere')`)
-        el2 = PushMenuItem(el, 'torus', `LoadSceneShape('', 'torus')`)
-        el2 = PushMenuItem(el, 'torus knot', `LoadSceneShape('', 'torus knot')`)
+          el2 = PushMenuItem(el, 'clear skybox', `ClearSkybox()`)
+          el2 = PushMenuItem(el, 'skyboxes', `SkyboxPicker()`)
+          el2 = PushMenuItem(el, 'shapes')
+            PushMenuItem(el2, 'tetrahedron', `LoadSceneShape('', 'tetrahedron')`)
+            PushMenuItem(el2, 'cube', `LoadSceneShape('', 'cube')`)
+            PushMenuItem(el2, 'octahedron', `LoadSceneShape('', 'octahedron')`)
+            PushMenuItem(el2, 'dodecahedron', `LoadSceneShape('', 'dodecahedron')`)
+            PushMenuItem(el2, 'icosahedron', `LoadSceneShape('', 'icosahedron')`)
+            PushMenuItem(el2, 'sphere', `LoadSceneShape('', 'sphere')`)
+            PushMenuItem(el2, 'torus', `LoadSceneShape('', 'torus')`)
+            PushMenuItem(el2, 'torus knot', `LoadSceneShape('', 'torus knot')`)
       }
       InitMenus()
 
@@ -1318,16 +1541,25 @@
 
 
       var shaderOptions = [
+        {lighting: {type: 'ambientLight', value: 1}},
+        { uniform: {
+          type: 'phong',
+          value: 0
+        } }
+      ]
+      var backgroundShader = await Coordinates.BasicShader(renderer, shaderOptions)
+
+      var shaderOptions = [
         {lighting: {type: 'ambientLight', value: .5}},
         { uniform: {
           type: 'phong',
-          value: .25
+          value: .15
         } },
         { uniform: {
           type: 'reflection',
-          enabled: false,
+          enabled: true,
           map: refTexture,
-          value: .1
+          value: .3
         } },
       ]
       var shader = await Coordinates.BasicShader(renderer, shaderOptions)
@@ -1434,8 +1666,8 @@
       })
 
 
-      var cl = 6
-      var rw = 6 
+      var cl = 5
+      var rw = 5 
       var sp = 10
       var pointArray = Array(cl*rw).fill().map((v, i) => {
         x = ((i%cl)-cl/2 + .5) * sp
@@ -1497,16 +1729,7 @@
       }
 
       var clickReady = true
-
-      targX = renderer.offsetX = 0
-      targY = renderer.offsetX = 0
-      targZ = renderer.offsetX = 0
-      targD = renderer.z = 10
-      renderer.x = 0
-      renderer.y = 0
-      renderer.z = 10
-      targYaw = renderer.yaw = -.2
-      targPitch = renderer.pitch = -.2
+      ClearAll()
 
       window.Draw = () => {
 
@@ -1592,7 +1815,7 @@
               renderer.Draw(shape)
             break
             case 'world grid':
-              if(1||!axisAligned || axisAligned == '-Z' || axisAligned == 'Z'){
+              if(0){
                 shape.shapeData.map((subShape, sIdx) => {
                   if(renderer.x + subShape.wx + renderer.offsetX > sp * (cl-1)){
                     subShape.x -= sp * cl
@@ -1607,20 +1830,20 @@
                     subShape.z += sp * rw
                   }
                 })
-                if(axisAligned == 'Y' || axisAligned == '-Y'){
-                  shape.roll = 0
-                  shape.pitch = Math.PI/2
-                  shape.yaw = 0
-                }else if(axisAligned == 'X' || axisAligned == '-X'){
-                  shape.roll= Math.PI/2
-                  shape.pitch= 0
-                  shape.yaw=0
-                }else{
-                  shape.roll = shape.pitch = shape.yaw = 0
-                }
-                renderer.Draw(shape)
               }
-              break
+              if(axisAligned == 'Y' || axisAligned == '-Y'){
+                shape.roll = 0
+                shape.pitch = Math.PI/2
+                shape.yaw = 0
+              }else if(axisAligned == 'X' || axisAligned == '-X'){
+                shape.roll= Math.PI/2
+                shape.pitch= 0
+                shape.yaw=0
+              }else{
+                shape.roll = shape.pitch = shape.yaw = 0
+              }
+              renderer.Draw(shape)
+            break
             case 'background':
               renderer.Draw(shape)
               break
@@ -1644,7 +1867,7 @@
         var oAxisAligned = axisAligned
         DrawGyroscope()
       }
-
+      
     </script>
   </body>
 </html>
