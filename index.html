@@ -59,7 +59,7 @@
         border-radius: 10px;
         background: #422;
         color: #f88;
-        position: absolute;
+        position: fixed;
         top: 0px;
         right: 20px;
         cursor: pointer;
@@ -191,7 +191,7 @@
           el.className = 'thumb'
           el.title = item
           var tidx = ((idx+1)+'').padStart(3, '0')
-          el.style.backgroundImage = 'url(./thumbs/thumb' + tidx + '.png)'
+          el.style.backgroundImage = 'url(https://srmcgann.github.io/coordinates_workshop/thumbs/thumb' + tidx + '.png)'
           el.onclick = () => {
             SetSkybox(item)
           }
@@ -779,8 +779,7 @@
                 keyTimers[keyCode] = renderer.t + keyTimerInterval
               break
               case 46:
-                shapes = shapes.filter(v=>v.name != 'scene shape' || !v.selected)
-                console.log(shapes)
+                shapes = shapes.filter(v=>v.name != 'scene shape')// || !v.selected)
                 keyTimers[keyCode] = renderer.t + keyTimerInterval
               break
             }
@@ -902,27 +901,29 @@
       
       const CloseModals = () => {
         var el = document.querySelectorAll('.modal')[0]
-        el.childNodes.forEach(node=>node.remove())
+        //el.childNodes.forEach(node=>node.remove())
         el.style.display = 'none'
       }
       
       window.SetSkybox = async map => {
         shapes = shapes.filter(v=>v.name != 'background')
-        var geoOptions = {
-          shapeType: 'dodecahedron',
-          name: 'background',
-          sphereize: 1,
-          subs: 4,
-          map,
-          size: 5e3,
-          colorMix: 0,
+        if(map){
+          var geoOptions = {
+            shapeType: 'dodecahedron',
+            name: 'background',
+            sphereize: 1,
+            subs: 4,
+            map,
+            size: 5e3,
+            colorMix: 0,
+          }
+          await Coordinates.LoadGeometry(renderer, geoOptions).then(async (geometry) => {
+            shapes.push(geometry)
+            await backgroundShader.ConnectGeometry(geometry)
+          })
         }
-        await Coordinates.LoadGeometry(renderer, geoOptions).then(async (geometry) => {
-          shapes.push(geometry)
-          await backgroundShader.ConnectGeometry(geometry)
-        })
         CloseModals()
-        console.log(shader)
+        refTexture = map
         shader.datasets.map(dataset => {
           if(typeof dataset?.optionalUniforms != 'undefined'){
             dataset.optionalUniforms.filter(v=>v.name=='reflection').map(v=>{
@@ -957,6 +958,7 @@
       
       const ClearSkybox = () => {
         shapes = shapes.filter(v=>v.name != 'background')
+        SetSkybox('')
       }
       
       const SkyboxPicker = () => {
@@ -1057,15 +1059,28 @@
           el2 = PushMenuItem(el, 'edit')
           el2 = PushMenuItem(el, 'sculpt')
 
+        var el4
         var el = FetchMenuItemByName('add', secondaryMenus)
           el2 = PushMenuItem(el, 'clear skybox', `ClearSkybox()`)
           el2 = PushMenuItem(el, 'skyboxes', `SkyboxPicker()`)
           el2 = PushMenuItem(el, 'shapes')
-            PushMenuItem(el2, 'tetrahedron', `LoadSceneShape('', 'tetrahedron')`)
+          for(var n = 0; n < 3; n++){
+            el3 = PushMenuItem(el2, `subdivisions ${n}`)
+            for(var m = -2; m < 10; m += 1){
+              el4 = PushMenuItem(el3, `sphereize ${m}`)
+                PushMenuItem(el4, 'tetrahedron', `LoadSceneShape('', 'tetrahedron', '', false, ${n}, ${m})`)
+                PushMenuItem(el4, 'cube', `LoadSceneShape('', 'cube', '', false, ${n}, ${m})`)
+                PushMenuItem(el4, 'octahedron', `LoadSceneShape('', 'octahedron', '', false, ${n}, ${m})`)
+                PushMenuItem(el4, 'dodecahedron', `LoadSceneShape('', 'dodecahedron', '', false, ${n}, ${m})`)
+                PushMenuItem(el4, 'icosahedron', `LoadSceneShape('', 'icosahedron', '', false, ${n}, ${m})`)
+              }
+            }
+            /*el4 = PushMenuItem(el2, 'tetrahedron')
             PushMenuItem(el2, 'cube', `LoadSceneShape('', 'cube')`)
             PushMenuItem(el2, 'octahedron', `LoadSceneShape('', 'octahedron')`)
             PushMenuItem(el2, 'dodecahedron', `LoadSceneShape('', 'dodecahedron')`)
             PushMenuItem(el2, 'icosahedron', `LoadSceneShape('', 'icosahedron')`)
+            */
             PushMenuItem(el2, 'sphere', `LoadSceneShape('', 'sphere')`)
             PushMenuItem(el2, 'torus', `LoadSceneShape('', 'torus')`)
             PushMenuItem(el2, 'torus knot', `LoadSceneShape('', 'torus knot')`)
@@ -1118,6 +1133,7 @@
         
         if(!(moveInProgress || zoomInProgress) && 
            Math.hypot(gyroPosX-mx, gyroPosY-my) < gyroSize*1.25 || orientationInProgress){
+           console.log(clickReady)
           gyrohover = true
           ctx.beginPath()
           for(var j=0; j<sd; j++){
@@ -1550,7 +1566,7 @@
       var backgroundShader = await Coordinates.BasicShader(renderer, shaderOptions)
 
       var shaderOptions = [
-        {lighting: {type: 'ambientLight', value: .5}},
+        {lighting: {type: 'ambientLight', value: .4}},
         { uniform: {
           type: 'phong',
           value: .15
@@ -1560,6 +1576,13 @@
           enabled: true,
           map: refTexture,
           value: .3
+        } },
+        { uniform: {
+          type: 'refraction2',
+          angleOfRefraction: .2,
+          enabled: true,
+          map: refTexture,
+          value: .5
         } },
       ]
       var shader = await Coordinates.BasicShader(renderer, shaderOptions)
@@ -1629,14 +1652,38 @@
         await gridShader.ConnectGeometry(geometry)
       })
 
-      const LoadSceneShape = async (url, shapeType, map='', replace=true) => {
+      const LoadSceneShape = async (url, shapeType, map='', replace=true,
+        subs='', sphereize=0) => {
+        var shaderOptions = [
+          {lighting: {type: 'ambientLight', value: .5}},
+          { uniform: {
+            type: 'phong',
+            value: .15
+          } },
+          { uniform: {
+            type: 'reflection',
+            enabled: true,
+            map: refTexture,
+            value: .3
+          } },
+        ]
+        var shader = await Coordinates.BasicShader(renderer, shaderOptions)
         var geoOptions = {
           shapeType,
           url,
           map,
+          sphereize,
+          subs,
           name: 'scene shape',
           color: 0xffffff,
           colorMix: map?0:.33,
+        }
+        if(sphereize && (shapeType == 'tetrahedron' ||
+                         shapeType == 'cube' ||
+                         shapeType == 'octahedron' ||
+                         shapeType == 'dodecahedron' ||
+                         shapeType == 'icosahedron')){
+          geoOptions.averageNormals = true
         }
         if(replace) shapes = shapes.filter(shape => shape.name != 'scene shape')
         shapes.filter(shape => shape.name != 'scene shape').map((shape, sIdx) => {
@@ -1646,6 +1693,7 @@
           geometry.hash = Coordinates.GenHash(renderer.t)
           geometry.selected = false
           shapes.push(geometry)
+          geometry.rebindTextures = true
           await shader.ConnectGeometry(geometry)
         })
       }
