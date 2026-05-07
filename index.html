@@ -79,15 +79,15 @@
         justify-content: space-evenly;
       }
       .thumb{
-        width: 400px;
-        height: 300px;
+        width: 200px;
+        height: 150px;
         background-repeat: no-repeat;
         background-size: cover;
         background-position: center center;
         background-color: transparent;
         border-radius: 10px;
         border: 1px solid #4688;
-        margin: 10px;
+        margin: 5px;
         cursor: pointer;
         align-self: flex-start;
       }
@@ -194,8 +194,8 @@
           el.title = item
           var tidx = ((idx+1)+'').padStart(3, '0')
           el.style.backgroundImage = 'url(https://srmcgann.github.io/coordinates_workshop/thumbs/thumb' + tidx + '.png)'
-          el.onclick = () => {
-            SetSkybox(item)
+          el.onclick = async () => {
+            await SetSkybox(item)
           }
           main.appendChild(el)
         })
@@ -211,7 +211,7 @@
       }
 
       import * as Coordinates from
-      "https://srmcgann.github.io/Coordinates/coordinates.min.js"
+      "https://srmcgann.github.io/Coordinates/coordinates.js"
 
       var rendererOptions = {
         ambientLight: .5, margin: 0, clearColor: 0x404040,
@@ -257,11 +257,53 @@
       var gyroClusterOffsetY = 0
       var isometric = false
       var version = 1.1
-      var scrollGrid = false
+      var scrollGrid = true
       var showGrid = true
       var gyroSize = 40
       var maxGyroSize = 100
       var minGyroSize = 25
+      var gridScale = .2325
+      
+      
+      var shaderOptions = [
+        {lighting: {type: 'ambientLight', value: 1}},
+        { uniform: {
+          type: 'phong',
+          value: 0
+        } }
+      ]
+      var backgroundShader = await Coordinates.BasicShader(renderer, shaderOptions)
+
+      var shaderOptions = [
+        {lighting: {type: 'ambientLight', value: .4}},
+        { uniform: {
+          type: 'phong',
+          value: .33
+        } },
+        { uniform: {
+          type: 'reflection',
+          enabled: true,
+          map: refTexture,
+          value: .3
+        } },
+        { uniform: {
+          type: 'refraction2',
+          angleOfRefraction: .2,
+          enabled: true,
+          map: refTexture,
+          value: .5
+        } },
+      ]
+      var shader = await Coordinates.BasicShader(renderer, shaderOptions)
+
+      var shaderOptions = [
+        {lighting: {type: 'ambientLight', value: .75}},
+        { uniform: {
+          type: 'phong',
+          value: 0
+        } },
+      ]
+      var flatShader = await Coordinates.BasicShader(renderer, shaderOptions)      
       
       var samples = [
         {
@@ -789,7 +831,11 @@
                 keyTimers[keyCode] = renderer.t + keyTimerInterval
               break
               case 46:
-                shapes = shapes.filter(v=>v.name != 'scene shape')// || !v.selected)
+                var systemShapes = shapes.filter((v, i)=>v.name != 'scene shape')
+                var sceneShapes = shapes.filter((v, i)=>v.name == 'scene shape')
+                if(sceneShapes.length) sceneShapes.pop()
+                shapes = [...systemShapes, ...sceneShapes]
+                //shapes = shapes.filter((v, i)=>v.name != 'scene shape')// || !v.selected)
                 keyTimers[keyCode] = renderer.t + keyTimerInterval
               break
             }
@@ -810,7 +856,8 @@
       rsz()
 
       //var refTexture = 'https://srmcgann.github.io/Coordinates/resources/million_particle_grid_equirectangular_po2.png'
-      var refTexture = 'https://srmcgann.github.io/Coordinates/resources/flat_grey.jpg'
+      var greyPixel = 'https://srmcgann.github.io/Coordinates/resources/flat_grey.jpg'
+      var refTexture = greyPixel
 
       var S = Math.sin
       var C = Math.cos
@@ -919,59 +966,75 @@
       }
       
       window.SetSkybox = async map => {
-        shapes = shapes.filter(v=>v.name != 'background')
-        if(map){
-          var geoOptions = {
-            shapeType: 'dodecahedron',
-            name: 'background',
-            sphereize: 1,
-            subs: 4,
-            map,
-            size: 5e3,
-            colorMix: 0,
-          }
-          await Coordinates.LoadGeometry(renderer, geoOptions).then(async (geometry) => {
-            shapes.push(geometry)
-            await backgroundShader.ConnectGeometry(geometry)
-          })
-        }
-        CloseModals()
         refTexture = map
+        if(map) map += `?${1e5+Rn()*(1e6-1e5)|0}`
+        shapes = shapes.filter(v=>v.name != 'background')
+        console.log('refTexture -> ' + refTexture)
+        var geoOptions = {
+          shapeType: 'dodecahedron',
+          name: 'background',
+          sphereize: 1,
+          subs: 3,
+          map: refTexture,
+          size: 5e3,
+          color: 0x040404,
+          colorMix: refTexture != greyPixel || !refTexture ? 0 : 1,
+        }
+        await Coordinates.LoadGeometry(renderer, geoOptions).then(async (geometry) => {
+          shapes.push(geometry)
+          await backgroundShader.ConnectGeometry(geometry)
+        })
+        CloseModals()
         shader.datasets.map(dataset => {
           if(typeof dataset?.optionalUniforms != 'undefined'){
             dataset.optionalUniforms.filter(v=>v.name=='reflection').map(v=>{
-              v.map = map
-              v.rebindTextures = true
+              var oldTexture = v.map
+              v.map = map ? map : v.map
+              console.log('setting reflection from: ' + oldTexture + ' to: ' + map)
+              v.enabled = !!map
+              v.rebindTextures = true //!!map
             })
           }
         })
         shader.datasets.map(dataset => {
           if(typeof dataset?.optionalUniforms != 'undefined'){
             dataset.optionalUniforms.filter(v=>v.name=='refraction2').map(v=>{
-              v.map = map
-              v.rebindTextures = true
+              var oldTexture = v.map
+              v.map = map ? map : v.map
+              console.log('setting refractions2 from: ' + oldTexture + ' to: ' + map)
+              v.enabled = !!map
+              v.rebindTextures = true //!!map
             })
           }
         })
+        console.log('shapes ->', shapes)
         shapes.map((shape, sIdx) => {
+          console.log('shape type',  shape.shapeType)
           shape.shader.datasets.map(dataset => {
             if(typeof dataset?.optionalUniforms != 'undefined'){
               dataset.optionalUniforms.filter(v=>v.name=='reflection').map(v=>{
-                v.map = map
-                v.rebindTextures = true
+                var oldTexture = v.map
+                v.map = map ? map : v.map
+                console.log(v)
+                console.log('setting reflection from: ' + oldTexture + ' to: ' + map)
+                v.enabled = !!map
+                v.rebindTextures = true //!!map
               })
               dataset.optionalUniforms.filter(v=>v.name=='refraction2').map(v=>{
-                v.map = map
-                v.rebindTextures = true
+                var oldTexture = v.map
+                v.map = map ? map : v.map
+                console.log('setting refraction2 from: ' + oldTexture + ' to: ' + map)
+                v.enabled = !!map
+                v.rebindTextures = true //!!map
               })
             }
           })
         })
       }
       
-      const ClearSkybox = () => {
+      const ClearSkybox = async () => {
         shapes = shapes.filter(v=>v.name != 'background')
-        SetSkybox('')
+        await SetSkybox('')
       }
       
       const SkyboxPicker = () => {
@@ -987,19 +1050,18 @@
         el.appendChild(closeButton)
       }
       
-      const ClearAll = () => {
+      const ClearAll = async () => {
         targX = renderer.offsetX = 0
         targY = renderer.offsetX = 0
         targZ = renderer.offsetX = 0
-        targD = renderer.z = 10
+        targD = renderer.z = 2.1
         axisAligned = ''
         renderer.x = 0
         renderer.y = 0
-        renderer.z = 10
-        targYaw = renderer.yaw = -.2
-        targPitch = renderer.pitch = -.2
+        targYaw = renderer.yaw = 0
+        targPitch = renderer.pitch = -Math.PI/2
         shapes = shapes.filter(shape => shape.name != 'scene shape')
-        ClearSkybox()
+        await ClearSkybox()
       }
       
       const InitMenus = () => {
@@ -1011,7 +1073,7 @@
 
         var el = FetchMenuItemByName('File', menus)
         var el2, el3
-        el2 = PushMenuItem(el, 'new scene', `ClearAll()`)
+        el2 = PushMenuItem(el, 'new scene', `(async ()=>{await ClearAll()})()`)
         el2 = PushMenuItem(el, 'load resource as new workspace')
           PushMenuItem(el2, 'obj', `Import('obj')`)
           PushMenuItem(el2, 'custom shape', `Import('custom shape', true)`)
@@ -1074,7 +1136,7 @@
 
         var el4
         var el = FetchMenuItemByName('add', secondaryMenus)
-          el2 = PushMenuItem(el, 'clear skybox', `ClearSkybox()`)
+          el2 = PushMenuItem(el, 'clear skybox', `(async ()=>{await ClearSkybox()})()`)
           el2 = PushMenuItem(el, 'skyboxes', `SkyboxPicker()`)
           el2 = PushMenuItem(el, 'shapes')
           for(var n = 0; n < 3; n++){
@@ -1094,9 +1156,9 @@
             PushMenuItem(el2, 'dodecahedron', `LoadSceneShape('', 'dodecahedron')`)
             PushMenuItem(el2, 'icosahedron', `LoadSceneShape('', 'icosahedron')`)
             */
-            PushMenuItem(el2, 'sphere', `LoadSceneShape('', 'sphere')`)
-            PushMenuItem(el2, 'torus', `LoadSceneShape('', 'torus')`)
-            PushMenuItem(el2, 'torus knot', `LoadSceneShape('', 'torus knot')`)
+            PushMenuItem(el2, 'sphere', `LoadSceneShape('', 'sphere', '', false)`)
+            PushMenuItem(el2, 'torus', `LoadSceneShape('', 'torus', '', false)`)
+            PushMenuItem(el2, 'torus knot', `LoadSceneShape('', 'torus knot', '', false)`)
       }
       InitMenus()
 
@@ -1231,12 +1293,12 @@
           }
           ctx.lineWidth = gyroSize/20
           ctx.strokeStyle = '#fff2'
-          ctx.fillStyle = gyroHandleHover ? '#8868' : '#8862'
+          ctx.fillStyle = gyroHandleHover || gyroClusterMoveInProgress ? '#8868' : '#8862'
           ctx.beginPath()
           gyroClusterHandle.forEach(v=>ctx.lineTo(v[0],v[1]))
           ctx.stroke()
           ctx.fill()
-          ctx.globalAlpha = gyroHandleHover ? .5 : .25
+          ctx.globalAlpha = gyroHandleHover || gyroClusterMoveInProgress ? .5 : .25
           var img = assets.filter(v => v.name == 'gyro cluster handle png')[0].resource
           x = gyroPosX - gyroSize*1.45
           y = gyroPosY - gyroSize*1.75
@@ -1453,7 +1515,7 @@
         ctx.fillStyle = dechover ? '#fff3' : '#222'
         ctx.fill()
         ctx.fillStyle = '#ffa'
-        ctx.fillText('-', decPosX, decPosY+fs/3)
+        ctx.fillText('-', decPosX, decPosY+fs/4)
         
         var tx, ty, tz
         var components = [
@@ -1699,6 +1761,7 @@
                 ctx.fill()
                 if(renderer.mouseButton == 1 && clickReady &&
                    !item.items.length) {
+                   console.log(item.script)
                   eval(item.script)
                   CloseAllMenus()
                   clickReady = false
@@ -1775,46 +1838,6 @@
       }
 
 
-      var shaderOptions = [
-        {lighting: {type: 'ambientLight', value: 1}},
-        { uniform: {
-          type: 'phong',
-          value: 0
-        } }
-      ]
-      var backgroundShader = await Coordinates.BasicShader(renderer, shaderOptions)
-
-      var shaderOptions = [
-        {lighting: {type: 'ambientLight', value: .4}},
-        { uniform: {
-          type: 'phong',
-          value: .15
-        } },
-        { uniform: {
-          type: 'reflection',
-          enabled: true,
-          map: refTexture,
-          value: .3
-        } },
-        { uniform: {
-          type: 'refraction2',
-          angleOfRefraction: .2,
-          enabled: true,
-          map: refTexture,
-          value: .5
-        } },
-      ]
-      var shader = await Coordinates.BasicShader(renderer, shaderOptions)
-
-      var shaderOptions = [
-        {lighting: {type: 'ambientLight', value: .75}},
-        { uniform: {
-          type: 'phong',
-          value: 0
-        } },
-      ]
-      var flatShader = await Coordinates.BasicShader(renderer, shaderOptions)
-
       var shapes = []
 
       var geoOptions = {
@@ -1840,8 +1863,8 @@
         } },
         { uniform: {
           type: 'fog',
-          color: 0x333333,
-          value: 4.25,
+          color: 0x040404,
+          value: 25,
         } }
       ]
       var gridShader = await Coordinates.BasicShader(renderer, shaderOptions)
@@ -1858,9 +1881,12 @@
       var baseAxisVerts
       var geoOptions = {
         shapeType: 'obj',
-        url: 'https://srmcgann.github.io/coordinates_workshop/assets/axes.obj?2',
+        url: 'https://srmcgann.github.io/coordinates_workshop/assets/axes.obj?3',
         map: 'https://srmcgann.github.io/coordinates_workshop/assets/axes_texture.png?2',
         name: 'axes',
+        scaleX: gridScale,
+        scaleY: gridScale,
+        scaleZ: gridScale,
         alpha: .9,
         alpha: 1,
         colorMix: 0,
@@ -1873,27 +1899,45 @@
 
       const LoadSceneShape = async (url, shapeType, map='', replace=true,
         subs='', sphereize=0) => {
+        var newRefTexture = refTexture
+        if(newRefTexture) newRefTexture += `?${1e5+Rn()*(1e6-1e5)|0}`
+        
         var shaderOptions = [
-          {lighting: {type: 'ambientLight', value: .5}},
+          {lighting: {type: 'ambientLight', value: !!refTexture ? .2 : .6}},
           { uniform: {
             type: 'phong',
-            value: .15
+            value: !!newRefTexture ? .1 : .4
           } },
           { uniform: {
             type: 'reflection',
-            enabled: true,
-            map: refTexture,
-            value: .3
-          } },
+            map: newRefTexture,
+            value: .2,
+            //rebindTextures: true,
+            involveCache: false,
+        } },
           { uniform: {
             type: 'refraction2',
             angleOfRefraction: .2,
-            enabled: true,
-            map: refTexture,
-            value: .5
+            map: newRefTexture,
+            value: .7,
+            //rebindTextures: true,
+            involveCache: false,
           } },
         ]
-        var shader = await Coordinates.BasicShader(renderer, shaderOptions)
+        var newShader = await Coordinates.BasicShader(renderer, shaderOptions)
+        var averageNormals=false, sphereize, subs
+        if((shapeType == 'tetrahedron' ||
+            shapeType == 'cube' ||
+            shapeType == 'octahedron' ||
+            shapeType == 'dodecahedron' ||
+            shapeType == 'icosahedron')){
+          if(sphereize){
+            averageNormals = true
+          }
+        }else{
+          subs = 0
+          sphereize = 0
+        }
         var geoOptions = {
           shapeType,
           url,
@@ -1902,14 +1946,10 @@
           subs,
           name: 'scene shape',
           color: 0xffffff,
-          colorMix: map?0:.33,
-        }
-        if(sphereize && (shapeType == 'tetrahedron' ||
-                         shapeType == 'cube' ||
-                         shapeType == 'octahedron' ||
-                         shapeType == 'dodecahedron' ||
-                         shapeType == 'icosahedron')){
-          geoOptions.averageNormals = true
+          colorMix: map?0:.25,
+          averageNormals,
+          involveCache: false,
+          //rebindTextures: !!newRefTexture,
         }
         if(replace) shapes = shapes.filter(shape => shape.name != 'scene shape')
         shapes.filter(shape => shape.name != 'scene shape').map((shape, sIdx) => {
@@ -1919,30 +1959,15 @@
           geometry.hash = Coordinates.GenHash(renderer.t)
           geometry.selected = false
           shapes.push(geometry)
-          geometry.rebindTextures = true
-          await shader.ConnectGeometry(geometry)
+          //geometry.rebindTextures = true
+          await newShader.ConnectGeometry(geometry)
+          SetSkybox(refTexture)
         })
       }
-
-      var geoOptions = {
-        shapeType: 'cube',
-        name: 'scene shape',
-        subs: 2,
-        color: 0xffffff,
-        size: 2,
-        colorMix: .33,
-      }
-      if(0)await Coordinates.LoadGeometry(renderer, geoOptions).then(async (geometry) => {
-        shapes.push(geometry)
-        geometry.hash = Coordinates.GenHash(renderer.t)
-        geometry.selected = false
-        await shader.ConnectGeometry(geometry)
-      })
-
-
+      
       var cl = 5
-      var rw = 5 
-      var sp = 10
+      var rw = 5
+      var sp = 10 * gridScale
       var pointArray = Array(cl*rw).fill().map((v, i) => {
         x = ((i%cl)-cl/2 + .5) * sp
         y = 0
@@ -1951,9 +1976,12 @@
       })
       var geoOptions = {
         shapeType: 'obj',
-        url: 'https://srmcgann.github.io/coordinates_workshop/assets/grid.obj',
+        url: 'https://srmcgann.github.io/coordinates_workshop/assets/grid.obj?2',
         name: 'world grid',
         alpha: 1,
+        scaleX: gridScale,
+        scaleY: gridScale,
+        scaleZ: gridScale,
         color: 0x888888,
         colorMix: .5,
       }
@@ -2003,7 +2031,14 @@
       }
 
       var clickReady = true
-      ClearAll()
+
+      await ClearAll()
+      await SetSkybox(greyPixel)
+      await LoadSceneShape ('', 'torus', '', false, 1, 0)
+      setTimeout(() => {
+        axisAligned = 'Z'
+      }, 0)
+      
 
       window.Draw = () => {
 
@@ -2054,11 +2089,11 @@
                     x = baseAxisVerts[i+0]
                     y = baseAxisVerts[i+1]
                     z = baseAxisVerts[i+2]
-                    if(axisAligned == 'Y' || axisAligned == '-Y'){
+                    if(axisAligned == 'X' || axisAligned == '-X'){
                       if(i<shape.vertices.length/2){
                         x = 1e5, y = 1e5, z = 1e5
                       }
-                    }else if(axisAligned == 'X' || axisAligned == '-X'){
+                    }else if(axisAligned == 'Y' || axisAligned == '-Y'){
                       if(i>=shape.vertices.length/2){
                         x = 1e5, y = 1e5, z = 1e5
                       }
@@ -2088,24 +2123,60 @@
                   Coordinates.ShowBounding(shape, renderer, true, -1,true, 0, 10)
                 }
               }
-              console.log(shape)
               renderer.Draw(shape)
             break
             case 'world grid':
               if(showGrid){
                 if(scrollGrid){
+                  var p1 = -renderer.yaw
+                  var p2 = -renderer.pitch + Math.PI/2
+                  var camPosX = S(p1) * S(p2) * targD + renderer.offsetX
+                  var camPosY = C(p2) * targD + renderer.offsetY
+                  var camPosZ = C(p1) * S(p2) * targD + renderer.offsetZ
                   shape.shapeData.map((subShape, sIdx) => {
-                    if(renderer.x + subShape.wx + renderer.offsetX > sp * (cl-1)){
-                      subShape.x -= sp * cl
-                    }
-                    if(renderer.x + subShape.wx + renderer.offsetX < -sp * (cl-1)){
-                      subShape.x += sp * cl
-                    }
-                    if(renderer.z + subShape.wz + renderer.offsetZ > sp * (rw-1)){
-                      subShape.z -= sp * rw
-                    }
-                    if(renderer.z + subShape.wz + renderer.offsetZ < -sp * (rw-1)){
-                      subShape.z += sp * rw
+                    switch(axisAligned){
+                      case 'X': case '-X':
+                        if(camPosZ + subShape.wz > sp * (cl-2)){
+                          subShape.z -= sp * cl
+                        }
+                        if(camPosZ + subShape.wz < -sp * (cl-2)){
+                          subShape.z += sp * cl
+                        }
+                        if(-camPosY + subShape.wx > sp * (rw-2)){
+                          subShape.x -= sp * rw
+                        }
+                        if(-camPosY + subShape.wx < -sp * (rw-2)){
+                          subShape.x += sp * rw
+                        }
+                      break
+                      case 'Y': case '-Y':
+                        if(camPosX + subShape.wx > sp * (cl-2)){
+                          subShape.x -= sp * cl
+                        }
+                        if(camPosX + subShape.wx < -sp * (cl-2)){
+                          subShape.x += sp * cl
+                        }
+                        if(camPosY + subShape.wz > sp * (rw-2)){
+                          subShape.z -= sp * rw
+                        }
+                        if(camPosY + subShape.wz < -sp * (rw-2)){
+                          subShape.z += sp * rw
+                        }
+                      break
+                      case 'Z': case '-Z': default:
+                        if(camPosX + subShape.wx > sp * (cl-2)){
+                          subShape.x -= sp * cl
+                        }
+                        if(camPosX + subShape.wx < -sp * (cl-2)){
+                          subShape.x += sp * cl
+                        }
+                        if(camPosZ + subShape.wz > sp * (rw-2)){
+                          subShape.z -= sp * rw
+                        }
+                        if(camPosZ + subShape.wz < -sp * (rw-2)){
+                          subShape.z += sp * rw
+                        }
+                      break
                     }
                   })
                 }
