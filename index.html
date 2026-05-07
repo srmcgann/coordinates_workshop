@@ -229,11 +229,19 @@
           willReadFrequently: true,
         }
       }
+      
       var canvasTexture = await Coordinates.Renderer(rendererOptions)
       var c = canvasTexture.c
       var ctx = canvasTexture.ctx
       var w = canvasTexture.c.width
       var h = canvasTexture.c.height
+      
+      //var scratchCanvas = await Coordinates.Renderer(rendererOptions)
+      //var c2 = scratchCanvas.c
+      //var ctx2 = scratchCanvas.ctx
+      //var w2 = scratchCanvas.c.width
+      //var h2 = scratchCanvas.c.height
+      
       var fs, mx, my, hovering = false
       var tempRendererProps, menuRows=1, secondaryMenuRows=1
       var menuBarHeight, secondaryMenuBarHeight, omx, omy
@@ -322,9 +330,9 @@
           name: 'arrow'
         },
         {
-          url:  'https://srmcgann.github.io/objs/arrow 2.obj',
-          map:  'https://srmcgann.github.io/objs/arrow 2.jpg',
-          name: 'arrow 2'
+          url:  'https://srmcgann.github.io/objs/hairgirl_new.obj',
+          map:  'https://srmcgann.github.io/objs/hairgirl_new.png',
+          name: 'hair girl'
         },
         {
           url:  'https://srmcgann.github.io/objs/axe.obj',
@@ -406,13 +414,15 @@
           map:  '',
           name: 'gear'
         },
-        /*{
-          url:  'https://srmcgann.github.io/objs/gem.obj',
-          map:  '',
-          name: ''
-        },
         {
           url:  'https://srmcgann.github.io/objs/glasses.obj',
+          map:  '',
+          name: 'glasses'
+        },
+      ]
+      var samples2 = [
+        {
+          url:  'https://srmcgann.github.io/objs/gem.obj',
           map:  '',
           name: ''
         },
@@ -443,11 +453,6 @@
         },
         {
           url:  'https://srmcgann.github.io/objs/greek_head4.obj',
-          map:  '',
-          name: ''
-        },
-        {
-          url:  'https://srmcgann.github.io/objs/hairgirl_new.obj',
           map:  '',
           name: ''
         },
@@ -493,12 +498,12 @@
         },
         {
           url:  'https://srmcgann.github.io/objs/ladybug.obj',
-          map:  '',
+          map:  'https://srmcgann.github.io/Coordinates/custom shapes/LADYBUG.jpg',
           name: ''
         },
         {
           url:  'https://srmcgann.github.io/objs/large prop.obj',
-          map:  '',
+          map:  'https://srmcgann.github.io/objs/large prop.png',
           name: ''
         },
         {
@@ -546,6 +551,8 @@
           map:  '',
           name: ''
         },
+      ]
+      var samples3 = [
         {
           url:  'https://srmcgann.github.io/objs/no-skid.obj',
           map:  '',
@@ -636,6 +643,8 @@
           map:  '',
           name: ''
         },
+      ]
+      var samples4 = [
         {
           url:  'https://srmcgann.github.io/objs/reflector2.obj',
           map:  '',
@@ -663,7 +672,7 @@
         },
         {
           url:  'https://srmcgann.github.io/objs/rubik.obj',
-          map:  '',
+          map:  'https://srmcgann.github.io/objs/rubik.png',
           name: ''
         },
         {
@@ -683,7 +692,7 @@
         },
         {
           url:  'https://srmcgann.github.io/objs/skull.obj',
-          map:  '',
+          map:  'https://srmcgann.github.io/objs/skull.jpg',
           name: ''
         },
         {
@@ -718,7 +727,7 @@
         },
         {
           url:  'https://srmcgann.github.io/objs/Sting-Sword.obj',
-          map:  '',
+          map:  'https://srmcgann.github.io/objs/Sting-Sword.jpg',
           name: ''
         },
         {
@@ -753,7 +762,7 @@
         },
         {
           url:  'https://srmcgann.github.io/objs/track.obj',
-          map:  '',
+          map:  'https://srmcgann.github.io/objs/track.png',
           name: ''
         },
         {
@@ -773,7 +782,7 @@
         },
         {
           url:  'https://srmcgann.github.io/objs/turtle_ultralowpoly.obj',
-          map:  '',
+          map:  'https://srmcgann.github.io/objs/turtle_ultralowpoly.png',
           name: ''
         },
         {
@@ -806,8 +815,37 @@
           map:  '',
           name: ''
         }
-        */
       ]
+      
+      samples.map(v => {
+        var l = v.url.split('/')
+        l = l[l.length-1].split('.')
+        v.name = l[l.length-2].replaceAll('_', ' ')
+      })
+      
+      samples2.map(v => {
+        var l = v.url.split('/')
+        l = l[l.length-1].split('.')
+        v.name = l[l.length-2].replaceAll('_', ' ')
+      })
+      
+      samples3.map(v => {
+        var l = v.url.split('/')
+        l = l[l.length-1].split('.')
+        v.name = l[l.length-2].replaceAll('_', ' ')
+      })
+      
+      samples4.map(v => {
+        var l = v.url.split('/')
+        l = l[l.length-1].split('.')
+        v.name = l[l.length-2].replaceAll('_', ' ')
+      })
+      
+      samples.sort((a,b) => b.name.length - a.name.length)
+      samples2.sort((a,b) => b.name.length - a.name.length)
+      samples3.sort((a,b) => b.name.length - a.name.length)
+      samples4.sort((a,b) => b.name.length - a.name.length)
+      
       
       var keys = Array(256).fill(false)
       var keyTimers = Array(256).fill(0)
@@ -933,13 +971,12 @@
       }
 
       const CloseAllMenus = () => {
-        var ret, found=false
         const recurse = item => {
           item.showSubs = false
           item.items.forEach(item => { recurse(item) })
         }
-        recurse(root)
-        return ret
+        recurse(menus.root)
+        recurse(secondaryMenus.root)
       }
 
       const Import = (format, replace=true, url='', map='') => {
@@ -1015,7 +1052,6 @@
               dataset.optionalUniforms.filter(v=>v.name=='reflection').map(v=>{
                 var oldTexture = v.map
                 v.map = map ? map : v.map
-                console.log(v)
                 console.log('setting reflection from: ' + oldTexture + ' to: ' + map)
                 v.enabled = !!map
                 v.rebindTextures = true //!!map
@@ -1058,8 +1094,8 @@
         axisAligned = ''
         renderer.x = 0
         renderer.y = 0
-        targYaw = renderer.yaw = 0
-        targPitch = renderer.pitch = -Math.PI/2
+        targYaw = renderer.yaw = .2
+        targPitch = renderer.pitch = -.2
         shapes = shapes.filter(shape => shape.name != 'scene shape')
         await ClearSkybox()
       }
@@ -1067,8 +1103,8 @@
       const InitMenus = () => {
         root = PushMenuItem(menus, 'root')
         PushMenuItem(root, 'File')
-        PushMenuItem(root, 'Edit')
-        PushMenuItem(root, 'Config')
+        //PushMenuItem(root, 'Edit')
+        //PushMenuItem(root, 'Config')
         PushMenuItem(root, 'Help')
 
         var el = FetchMenuItemByName('File', menus)
@@ -1089,16 +1125,6 @@
           el3 = PushMenuItem(el2, 'whole scene')
             PushMenuItem(el3, 'obj', `Export('obj', false)`)
             PushMenuItem(el3, 'custom shape', `Export('custom shape', false)`)
-
-        el2 = PushMenuItem(el, 'samples')
-          samples.map(sample => {
-            el3 = PushMenuItem(el2, sample.name)
-              PushMenuItem(el3, 'textured', `Import('obj', false,
-                                                '${sample.url}',
-                                                '${sample.map}')`)
-              PushMenuItem(el3, 'no texture', `Import('obj', false,
-                                                '${sample.url}', -1)`)
-          })
 
 
         var el = FetchMenuItemByName('Help', menus)
@@ -1123,16 +1149,16 @@
         })
         
         root = PushMenuItem(secondaryMenus, 'root')
-          PushMenuItem(root, 'mode')
-          PushMenuItem(root, 'view')
-          PushMenuItem(root, 'select')
+          //PushMenuItem(root, 'mode')
+          //PushMenuItem(root, 'view')
+          //PushMenuItem(root, 'select')
           PushMenuItem(root, 'add')
-          PushMenuItem(root, 'object')
+          //PushMenuItem(root, 'object')
         
-        var el = FetchMenuItemByName('mode', secondaryMenus)
-          el2 = PushMenuItem(el, 'object')
-          el2 = PushMenuItem(el, 'edit')
-          el2 = PushMenuItem(el, 'sculpt')
+        //var el = FetchMenuItemByName('mode', secondaryMenus)
+        //  el2 = PushMenuItem(el, 'object')
+        //  el2 = PushMenuItem(el, 'edit')
+        //  el2 = PushMenuItem(el, 'sculpt')
 
         var el4
         var el = FetchMenuItemByName('add', secondaryMenus)
@@ -1150,15 +1176,54 @@
                 PushMenuItem(el4, 'icosahedron', `LoadSceneShape('', 'icosahedron', '', false, ${n}, ${m})`)
               }
             }
-            /*el4 = PushMenuItem(el2, 'tetrahedron')
-            PushMenuItem(el2, 'cube', `LoadSceneShape('', 'cube')`)
-            PushMenuItem(el2, 'octahedron', `LoadSceneShape('', 'octahedron')`)
-            PushMenuItem(el2, 'dodecahedron', `LoadSceneShape('', 'dodecahedron')`)
-            PushMenuItem(el2, 'icosahedron', `LoadSceneShape('', 'icosahedron')`)
-            */
             PushMenuItem(el2, 'sphere', `LoadSceneShape('', 'sphere', '', false)`)
             PushMenuItem(el2, 'torus', `LoadSceneShape('', 'torus', '', false)`)
             PushMenuItem(el2, 'torus knot', `LoadSceneShape('', 'torus knot', '', false)`)
+            el2 = PushMenuItem(el, 'samples 1')
+              samples.map(sample => {
+                if(sample.map){
+                  el3 = PushMenuItem(el2, sample.name, `Import('obj', false,
+                                                    '${sample.url}',
+                                                    '${sample.map}')`)
+                }else{
+                  el3 = PushMenuItem(el2, sample.name, `Import('obj', false,
+                                                    '${sample.url}', -1)`)
+                }
+              })
+            el2 = PushMenuItem(el, 'samples 2')
+              samples2.map(sample => {
+                if(sample.map){
+                  el3 = PushMenuItem(el2, sample.name, `Import('obj', false,
+                                                    '${sample.url}',
+                                                    '${sample.map}')`)
+                }else{
+                  el3 = PushMenuItem(el2, sample.name, `Import('obj', false,
+                                                    '${sample.url}', -1)`)
+                }
+              })
+            el2 = PushMenuItem(el, 'samples 3')
+              samples3.map(sample => {
+                if(sample.map){
+                  el3 = PushMenuItem(el2, sample.name, `Import('obj', false,
+                                                    '${sample.url}',
+                                                    '${sample.map}')`)
+                }else{
+                  el3 = PushMenuItem(el2, sample.name, `Import('obj', false,
+                                                    '${sample.url}', -1)`)
+                }
+              })
+            el2 = PushMenuItem(el, 'samples 4')
+              samples4.map(sample => {
+                if(sample.map){
+                  el3 = PushMenuItem(el2, sample.name, `Import('obj', false,
+                                                    '${sample.url}',
+                                                    '${sample.map}')`)
+                }else{
+                  el3 = PushMenuItem(el2, sample.name, `Import('obj', false,
+                                                    '${sample.url}', -1)`)
+                }
+              })
+
       }
       InitMenus()
 
@@ -1712,6 +1777,12 @@
         }
       }
 
+      const CloseAllSubMenus = menus => {
+        (menus?.items ? menus.items : menus).map(menu => {
+          menu.showSubs = false
+          CloseAllSubMenus(menu.items)
+        })
+      }
 
       const DrawMainMenus = () => {
         var height = fs * 1.2 + menuPadding
@@ -1761,7 +1832,6 @@
                 ctx.fill()
                 if(renderer.mouseButton == 1 && clickReady &&
                    !item.items.length) {
-                   console.log(item.script)
                   eval(item.script)
                   CloseAllMenus()
                   clickReady = false
@@ -1864,7 +1934,7 @@
         { uniform: {
           type: 'fog',
           color: 0x040404,
-          value: 25,
+          value: 32,
         } }
       ]
       var gridShader = await Coordinates.BasicShader(renderer, shaderOptions)
@@ -1965,8 +2035,8 @@
         })
       }
       
-      var cl = 5
-      var rw = 5
+      var cl = 4
+      var rw = 4
       var sp = 10 * gridScale
       var pointArray = Array(cl*rw).fill().map((v, i) => {
         x = ((i%cl)-cl/2 + .5) * sp
@@ -2023,20 +2093,13 @@
         return ret
       }
 
-      const CloseAllSubMenus = menus => {
-        (menus?.subs ? menus.subs : menus).map(menu => {
-          menu.showSubs = false
-          CloseAllSubMenus(menu.subs)
-        })
-      }
-
       var clickReady = true
 
       await ClearAll()
       await SetSkybox(greyPixel)
-      await LoadSceneShape ('', 'torus', '', false, 1, 0)
+      await LoadSceneShape ('', 'dodecahedron', '', false, 1, 0)
       setTimeout(() => {
-        axisAligned = 'Z'
+        //axisAligned = 'Z'
       }, 0)
       
 
