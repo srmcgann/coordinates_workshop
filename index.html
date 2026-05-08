@@ -2711,10 +2711,11 @@
               break
           }
         })
-
-
-        // main menu
-
+        
+        
+        var oAxisAligned = axisAligned
+        DrawGyroscope()
+        DrawMainTools()
         DrawMainMenus()
         
         if(hovering){
@@ -2722,11 +2723,6 @@
         }else{
           document.body.style.cursor = 'default'
         }
-        
-        var oAxisAligned = axisAligned
-        DrawGyroscope()
-        DrawMainTools()
-        
         if(clickReady && renderer.mouseButton == 1 &&
            !sizing){
           clickReady = false
