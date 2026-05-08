@@ -2,14 +2,17 @@
   to do
   ✔ axis color coding lines in scene
   ✔ viewport move tool
-  * select shapes / selection tool
-  * gyro cluster moveable w/handle
+  ✔ select shapes / selection tool
+  ✔ gyro cluster moveable w/handle
+  ✔ sync grid-size to shape units
+  ✔ undo function
   * tooltips
-  * sync grid-size to shape units
   * cursor which serves as camera orbit point
   * toolbar
     * move
     * scale
+    * rotate
+    * select
     * rotate
   * menu
     * apply transformations / rotations / scale
@@ -280,6 +283,9 @@
       var gridScale = .2325
       var curTool = ''
       var sizing = false
+      var undoQueue = []
+      var undoQueueIdx = -1
+      var maxUndoHistoryLength = 25
       
       
       var shaderOptions = [
@@ -863,11 +869,48 @@
       var selected = []
       
       window.onkeydown = e => {
+        console.log(e.keyCode)
         keys[e.keyCode] = true
       }
       
       window.onkeyup = e => {
         keys[e.keyCode] = false
+        keyTimers[e.keyCode] = 0
+      }
+      
+      const Undo = dir => {
+        switch(dir){
+          case -1:
+            if(undoQueue.length < 1) return
+            var undoItem = undoQueue[undoQueueIdx]
+            if(undoQueueIdx >= 0 ) undoQueueIdx--
+            if(typeof undoItem?.action == 'undefined') return
+            switch(undoItem.action){
+              case 'del':
+                undoItem.items.forEach(item => {
+                  switch(undoItem.type){
+                    case 'array':
+                      eval(`${undoItem.source}.push(item)`)
+                    break
+                    default:
+                    break
+                  }
+                })
+              break
+              default:
+              break
+            }
+          break
+          case 1:
+            if(undoQueueIdx < undoQueue.length - 1){
+              undoQueueIdx++
+              var undoItem = undoQueue[undoQueueIdx]
+              undoItem.items.forEach(item => {
+                eval(`${undoItem.source} = ${undoItem.source}.filter(v=>v.hash!=item.hash)`)
+              })
+            }
+          break
+        }
       }
       
       const DoKeys = () => {
@@ -877,12 +920,36 @@
               case 32:
                 keyTimers[keyCode] = renderer.t + keyTimerInterval
               break
+              case 90: // z
+                if(keys[17]){ // ctrl z
+                  if(keys[16]){ // shift ctrl z
+                    Undo(1)
+                  }else{
+                    Undo(-1)
+                  }
+                }
+                keyTimers[keyCode] = renderer.t + keyTimerInterval * 2
+              break
               case 46:
-                var systemShapes = shapes.filter((v, i)=>v.name != 'scene shape')
-                var sceneShapes = shapes.filter((v, i)=>v.name == 'scene shape')
-                if(sceneShapes.length) sceneShapes.pop()
-                shapes = [...systemShapes, ...sceneShapes]
-                //shapes = shapes.filter((v, i)=>v.name != 'scene shape')// || !v.selected)
+                if(shapes.length){
+                  undoQueue = undoQueue.filter((v, i) => i < undoQueueIdx+1)
+                  var command = `
+                  shapes = shapes.filter((v, i)=>v.name != 'scene shape' || !v.selected)`
+                  undoQueueIdx++
+                  undoQueue.push({
+                    command,
+                    action: 'del',
+                    type: 'array',
+                    source: 'shapes',
+                    items: shapes.filter((v, i)=>v.name == 'scene shape' && v.selected)
+                  })
+                  if(undoQueue.length > maxUndoHistoryLength){
+                    undoQueue.shift()
+                  }
+                }
+                
+                eval(command)
+                
                 keyTimers[keyCode] = renderer.t + keyTimerInterval
               break
             }
@@ -1317,6 +1384,7 @@
       })
 
       const DrawGyroscope = () => {
+        if(hovering) return
         var fs
         var gyroYaw = renderer.yaw
         var gyroPitch = renderer.pitch
@@ -1378,7 +1446,7 @@
            Coordinates.PointInPoly2D(mx, my, gyroClusterBody) ||
            orientationInProgress || moveInProgress || zoomInProgress){
           if(gyroHandleHover || gyroClusterMoveInProgress){
-            if(clickReady && renderer.mouseButton == 1){
+            if(!hovering && clickReady && renderer.mouseButton == 1){
               clickReady = false
               omx = mx
               omy = my
@@ -1417,126 +1485,127 @@
           ctx.stroke()
         }
         
-        
-        if(clickReady && !(moveInProgress || zoomInProgress) && 
-           Math.hypot(gyroPosX-mx, gyroPosY-my) < gyroSize*1.25 || orientationInProgress){
-          gyrohover = true
-          ctx.beginPath()
-          for(var j=0; j<sd; j++){
-            x = gyroPosX + S(p=Math.PI*2/sd*j) * gyroSize * 1.25
-            y = gyroPosY + C(p) * gyroSize * 1.25
-            ctx.lineTo(x, y)
-          }
-          ctx.fillStyle = '#fff3'
-          ctx.fill()
-        }else if(clickReady && !(moveInProgress || orientationInProgress) &&
-                   Math.hypot(zoomPosX-mx, zoomPosY-my) < zoomSize*1.25 || zoomInProgress){
-          zoomhover = true
-          if(zoomhover && renderer.mouseButton == 1 || zoomInProgress){
-            if(clickReady){
-              clickReady = false
-              zoomInProgress = true
+        if(!hovering){
+          if(clickReady && !(moveInProgress || zoomInProgress) && 
+             Math.hypot(gyroPosX-mx, gyroPosY-my) < gyroSize*1.25 || orientationInProgress){
+            gyrohover = true
+            ctx.beginPath()
+            for(var j=0; j<sd; j++){
+              x = gyroPosX + S(p=Math.PI*2/sd*j) * gyroSize * 1.25
+              y = gyroPosY + C(p) * gyroSize * 1.25
+              ctx.lineTo(x, y)
+            }
+            ctx.fillStyle = '#fff3'
+            ctx.fill()
+          }else if(clickReady && !(moveInProgress || orientationInProgress) &&
+                     Math.hypot(zoomPosX-mx, zoomPosY-my) < zoomSize*1.25 || zoomInProgress){
+            zoomhover = true
+            if(zoomhover && renderer.mouseButton == 1 || zoomInProgress){
+              if(clickReady){
+                clickReady = false
+                zoomInProgress = true
+                omx = mx
+                omy = my
+              }
+              
+              targD -= (omy-my)/zoomHoming
+              
               omx = mx
               omy = my
             }
-            
-            targD -= (omy-my)/zoomHoming
-            
-            omx = mx
-            omy = my
-          }
-        }else if(clickReady && !(zoomInProgress || orientationInProgress) &&
-                   Math.hypot(movePosX-mx, movePosY-my) < moveSize*1.25 || moveInProgress){
-          movehover = true
-          if(movehover && renderer.mouseButton == 1 || moveInProgress){
-            if(clickReady){
-              clickReady = false
-              moveInProgress = true
+          }else if(clickReady && !(zoomInProgress || orientationInProgress) &&
+                     Math.hypot(movePosX-mx, movePosY-my) < moveSize*1.25 || moveInProgress){
+            movehover = true
+            if(movehover && renderer.mouseButton == 1 || moveInProgress){
+              if(clickReady){
+                clickReady = false
+                moveInProgress = true
+                omx = mx
+                omy = my
+              }
+              
+              var x1 = 0
+              var y1 = 1
+              var z1 = 0
+              var x2 = 1
+              var y2 = 0
+              var z2 = 0
+              p = Math.atan2(y1,z1) + renderer.pitch
+              d = Math.hypot(y1,z1)
+              y1 = S(p) * d
+              z1 = C(p) * d
+              p = Math.atan2(y2,z2) + renderer.pitch
+              d = Math.hypot(y2,z2)
+              y2 = S(p) * d
+              z2 = C(p) * d
+
+              p = Math.atan2(x1,z1) - renderer.yaw
+              d = Math.hypot(x1,z1)
+              x1 = S(p) * d
+              z1 = C(p) * d
+              p = Math.atan2(x2,z2) - renderer.yaw
+              d = Math.hypot(x2,z2)
+              x2 = S(p) * d
+              z2 = C(p) * d
+              
+              targX -= x2 * (omx-mx) / moveHoming
+              targY -= y2 * (omx-mx) / moveHoming
+              targZ -= z2 * (omx-mx) / moveHoming
+
+              targX += x1 * (omy-my) / moveHoming
+              targY += y1 * (omy-my) / moveHoming
+              targZ += z1 * (omy-my) / moveHoming
+
+              
               omx = mx
               omy = my
             }
-            
-            var x1 = 0
-            var y1 = 1
-            var z1 = 0
-            var x2 = 1
-            var y2 = 0
-            var z2 = 0
-            p = Math.atan2(y1,z1) + renderer.pitch
-            d = Math.hypot(y1,z1)
-            y1 = S(p) * d
-            z1 = C(p) * d
-            p = Math.atan2(y2,z2) + renderer.pitch
-            d = Math.hypot(y2,z2)
-            y2 = S(p) * d
-            z2 = C(p) * d
+          }else if(clickReady && !(moveInProgress || zoomInProgress || orientationInProgress) &&
+                     Math.hypot(isoPosX-mx, isoPosY-my) < isoSize*1.25){
+            isohover = true
+            if(isohover && renderer.mouseButton == 1 && clickReady){
+              clickReady = false
+              isometric = !isometric
+            }
+          }else if(clickReady && !(moveInProgress || zoomInProgress || orientationInProgress) &&
+                     Math.hypot(gridPosX-mx, gridPosY-my) < gridSize*1.25){
+            gridhover = true
+            if(gridhover && renderer.mouseButton == 1 && clickReady){
+              clickReady = false
+              showGrid = !showGrid
+            }
+          }else if(clickReady && !(moveInProgress || zoomInProgress || orientationInProgress) &&
+                     Math.hypot(incPosX-mx, incPosY-my) < incSize*1.25){
+            inchover = true
+            if(inchover && renderer.mouseButton == 1 && clickReady){
+              sizing = true
+              gyroSize *= 1.015
+              gyroSize = Math.min(maxGyroSize, gyroSize)
+              var gs = gyroSize
+              var gpx = c.width - gyroSize * 2 + gyroClusterOffsetX
+              var gpy = gyroSize * 2 + menuRows *
+                  menuBarHeight + secondaryMenuRows *
+                  secondaryMenuBarHeight + gyroClusterOffsetY
 
-            p = Math.atan2(x1,z1) - renderer.yaw
-            d = Math.hypot(x1,z1)
-            x1 = S(p) * d
-            z1 = C(p) * d
-            p = Math.atan2(x2,z2) - renderer.yaw
-            d = Math.hypot(x2,z2)
-            x2 = S(p) * d
-            z2 = C(p) * d
-            
-            targX -= x2 * (omx-mx) / moveHoming
-            targY -= y2 * (omx-mx) / moveHoming
-            targZ -= z2 * (omx-mx) / moveHoming
+              gyroClusterOffsetX += mx - (gpx + gs * 1.2)
+              gyroClusterOffsetY += my - (gpy - gs)
+            }
+          }else if(clickReady && !(moveInProgress || zoomInProgress || orientationInProgress) &&
+                     Math.hypot(decPosX-mx, decPosY-my) < decSize*1.25){
+            dechover = true
+            if(dechover && renderer.mouseButton == 1 && clickReady){
+              sizing = true
+              gyroSize /= 1.015
+              gyroSize = Math.max(minGyroSize, gyroSize)
+              var gs = gyroSize
+              var gpx = c.width - gyroSize * 2 + gyroClusterOffsetX
+              var gpy = gyroSize * 2 + menuRows *
+                  menuBarHeight + secondaryMenuRows *
+                  secondaryMenuBarHeight + gyroClusterOffsetY
 
-            targX += x1 * (omy-my) / moveHoming
-            targY += y1 * (omy-my) / moveHoming
-            targZ += z1 * (omy-my) / moveHoming
-
-            
-            omx = mx
-            omy = my
-          }
-        }else if(clickReady && !(moveInProgress || zoomInProgress || orientationInProgress) &&
-                   Math.hypot(isoPosX-mx, isoPosY-my) < isoSize*1.25){
-          isohover = true
-          if(isohover && renderer.mouseButton == 1 && clickReady){
-            clickReady = false
-            isometric = !isometric
-          }
-        }else if(clickReady && !(moveInProgress || zoomInProgress || orientationInProgress) &&
-                   Math.hypot(gridPosX-mx, gridPosY-my) < gridSize*1.25){
-          gridhover = true
-          if(gridhover && renderer.mouseButton == 1 && clickReady){
-            clickReady = false
-            showGrid = !showGrid
-          }
-        }else if(clickReady && !(moveInProgress || zoomInProgress || orientationInProgress) &&
-                   Math.hypot(incPosX-mx, incPosY-my) < incSize*1.25){
-          inchover = true
-          if(inchover && renderer.mouseButton == 1 && clickReady){
-            sizing = true
-            gyroSize *= 1.015
-            gyroSize = Math.min(maxGyroSize, gyroSize)
-            var gs = gyroSize
-            var gpx = c.width - gyroSize * 2 + gyroClusterOffsetX
-            var gpy = gyroSize * 2 + menuRows *
-                menuBarHeight + secondaryMenuRows *
-                secondaryMenuBarHeight + gyroClusterOffsetY
-
-            gyroClusterOffsetX += mx - (gpx + gs * 1.2)
-            gyroClusterOffsetY += my - (gpy - gs)
-          }
-        }else if(clickReady && !(moveInProgress || zoomInProgress || orientationInProgress) &&
-                   Math.hypot(decPosX-mx, decPosY-my) < decSize*1.25){
-          dechover = true
-          if(dechover && renderer.mouseButton == 1 && clickReady){
-            sizing = true
-            gyroSize /= 1.015
-            gyroSize = Math.max(minGyroSize, gyroSize)
-            var gs = gyroSize
-            var gpx = c.width - gyroSize * 2 + gyroClusterOffsetX
-            var gpy = gyroSize * 2 + menuRows *
-                menuBarHeight + secondaryMenuRows *
-                secondaryMenuBarHeight + gyroClusterOffsetY
-
-            gyroClusterOffsetX += mx - (gpx - gs * 1.2)
-            gyroClusterOffsetY += my- (gpy - gs)
+              gyroClusterOffsetX += mx - (gpx - gs * 1.2)
+              gyroClusterOffsetY += my- (gpy - gs)
+            }
           }
         }
         
@@ -1884,7 +1953,7 @@
         if(toolsClusterMoveInProgress || toolsHandleHover ||
            Coordinates.PointInPoly2D(mx, my, toolsClusterBody)){
           if(toolsHandleHover || toolsClusterMoveInProgress){
-            if(renderer.mouseButton == 1 && clickReady){
+            if(!hovering && renderer.mouseButton == 1 && clickReady){
               clickReady = false
               omx = mx
               omy = my
@@ -1923,82 +1992,84 @@
           ctx.stroke()
         }
         
-        if(clickReady && !toolsClusterMoveInProgress && 
-           Math.hypot(toolsPosX-mx, toolsPosY-my) < toolsSize*1.25){
-          toolshover = true
+        if(!hovering){
+          if(clickReady && !toolsClusterMoveInProgress && 
+             Math.hypot(toolsPosX-mx, toolsPosY-my) < toolsSize*1.25){
+            toolshover = true
+          }
+          if(clickReady &&
+                   Math.hypot(selectPosX-mx, selectPosY-my) < selectSize*1.25){
+            selecthover = true
+            if(selecthover && renderer.mouseButton == 1 && clickReady){
+              clickReady = false
+              curTool = 'select'
+              console.log(curTool)
+            }
+          }else if(clickReady &&
+                   Math.hypot(movePosX-mx, movePosY-my) < moveSize*1.25){
+            movehover = true
+            if(movehover && renderer.mouseButton == 1 && clickReady){
+              clickReady = false
+              curTool = 'move'
+              console.log(curTool)
+            }
+          }else if(clickReady &&
+                   Math.hypot(rotatePosX-mx, rotatePosY-my) < rotateSize*1.25){
+            rotatehover = true
+            if(rotatehover && renderer.mouseButton == 1 && clickReady){
+              clickReady = false
+              curTool = 'rotate'
+              console.log(curTool)
+            }
+          }else if(clickReady &&
+                   Math.hypot(scalePosX-mx, scalePosY-my) < scaleSize*1.25){
+            scalehover = true
+            if(scalehover && renderer.mouseButton == 1 && clickReady){
+              clickReady = false
+              curTool = 'scale'
+              console.log(curTool)
+            }
+          }else if(clickReady &&
+                   Math.hypot(multiPosX-mx, multiPosY-my) < multiSize*1.25){
+            multihover = true
+            if(multihover && renderer.mouseButton == 1 && clickReady){
+              clickReady = false
+              curTool = 'multi'
+              console.log(curTool)
+            }
+          }else if(clickReady && !(moveInProgress || zoomInProgress || orientationInProgress) &&
+                     Math.hypot(incPosX-mx, incPosY-my) < incSize*1.25){
+            inchover = true
+            if(inchover && renderer.mouseButton == 1 && clickReady){
+              sizing = true
+              toolsSize *= 1.015
+              toolsSize = Math.min(maxToolsSize, toolsSize)
+              var gs = toolsSize
+              var gpx = 150 + toolsSize * 2 + toolsClusterOffsetX
+              var gpy = toolsSize * 2 + menuRows *
+                  menuBarHeight + secondaryMenuRows *
+                  secondaryMenuBarHeight + toolsClusterOffsetY
+              toolsClusterOffsetX += mx - (gpx + gs)
+              toolsClusterOffsetY += my - (gpy - gs)
+            }
+          }else if(clickReady && !(moveInProgress || zoomInProgress || orientationInProgress) &&
+                     Math.hypot(decPosX-mx, decPosY-my) < decSize*1.25){
+            dechover = true
+            if(dechover && renderer.mouseButton == 1 && clickReady){
+              sizing = true
+              toolsSize /= 1.015
+              toolsSize = Math.min(maxToolsSize, toolsSize)
+              var gs = toolsSize
+              var gpx = 150 + toolsSize * 2 + toolsClusterOffsetX
+              var gpy = toolsSize * 2 + menuRows *
+                  menuBarHeight + secondaryMenuRows *
+                  secondaryMenuBarHeight + toolsClusterOffsetY
+              toolsClusterOffsetX += mx - (gpx + gs / 3)
+              toolsClusterOffsetY += my - (gpy - gs)
+            }
+          }
         }
-        if(clickReady &&
-                 Math.hypot(selectPosX-mx, selectPosY-my) < selectSize*1.25){
-          selecthover = true
-          if(selecthover && renderer.mouseButton == 1 && clickReady){
-            clickReady = false
-            curTool = 'select'
-            console.log(curTool)
-          }
-        }else if(clickReady &&
-                 Math.hypot(movePosX-mx, movePosY-my) < moveSize*1.25){
-          movehover = true
-          if(movehover && renderer.mouseButton == 1 && clickReady){
-            clickReady = false
-            curTool = 'move'
-            console.log(curTool)
-          }
-        }else if(clickReady &&
-                 Math.hypot(rotatePosX-mx, rotatePosY-my) < rotateSize*1.25){
-          rotatehover = true
-          if(rotatehover && renderer.mouseButton == 1 && clickReady){
-            clickReady = false
-            curTool = 'rotate'
-            console.log(curTool)
-          }
-        }else if(clickReady &&
-                 Math.hypot(scalePosX-mx, scalePosY-my) < scaleSize*1.25){
-          scalehover = true
-          if(scalehover && renderer.mouseButton == 1 && clickReady){
-            clickReady = false
-            curTool = 'scale'
-            console.log(curTool)
-          }
-        }else if(clickReady &&
-                 Math.hypot(multiPosX-mx, multiPosY-my) < multiSize*1.25){
-          multihover = true
-          if(multihover && renderer.mouseButton == 1 && clickReady){
-            clickReady = false
-            curTool = 'multi'
-            console.log(curTool)
-          }
-        }else if(clickReady && !(moveInProgress || zoomInProgress || orientationInProgress) &&
-                   Math.hypot(incPosX-mx, incPosY-my) < incSize*1.25){
-          inchover = true
-          if(inchover && renderer.mouseButton == 1 && clickReady){
-            sizing = true
-            toolsSize *= 1.015
-            toolsSize = Math.min(maxToolsSize, toolsSize)
-            var gs = toolsSize
-            var gpx = 150 + toolsSize * 2 + toolsClusterOffsetX
-            var gpy = toolsSize * 2 + menuRows *
-                menuBarHeight + secondaryMenuRows *
-                secondaryMenuBarHeight + toolsClusterOffsetY
-            toolsClusterOffsetX += mx - (gpx + gs)
-            toolsClusterOffsetY += my - (gpy - gs)
-          }
-        }else if(clickReady && !(moveInProgress || zoomInProgress || orientationInProgress) &&
-                   Math.hypot(decPosX-mx, decPosY-my) < decSize*1.25){
-          dechover = true
-          if(dechover && renderer.mouseButton == 1 && clickReady){
-            sizing = true
-            toolsSize /= 1.015
-            toolsSize = Math.min(maxToolsSize, toolsSize)
-            var gs = toolsSize
-            var gpx = 150 + toolsSize * 2 + toolsClusterOffsetX
-            var gpy = toolsSize * 2 + menuRows *
-                menuBarHeight + secondaryMenuRows *
-                secondaryMenuBarHeight + toolsClusterOffsetY
-            toolsClusterOffsetX += mx - (gpx + gs / 3)
-            toolsClusterOffsetY += my - (gpy - gs)
-          }
-        }
-        
+          
         
         ctx.beginPath()
         for(var j=0; j<sd; j++){
@@ -2368,6 +2439,9 @@
           map,
           sphereize,
           subs,
+          x: (Rn() - .5) * 10,
+          y: 0,
+          z: (Rn() - .5) * 10,
           name: 'scene shape',
           color: 0xffffff,
           colorMix: map?0:.25,
@@ -2387,7 +2461,7 @@
           }else{
             geometry.userName = geometry.shapeType
           }
-          geometry.hash = Coordinates.GenHash(renderer.t)
+          geometry.hash = Coordinates.GenHash(renderer.t+(Rn()*1e8|0))
           geometry.selected = false
           shapes.push(geometry)
           //geometry.rebindTextures = true
@@ -2565,9 +2639,9 @@
                   Coordinates.ShowBounding(shape, renderer, true, -1,true, 0, 10)
                 }
                 */
-                x = shape.x + shape.centerOfMass.x
-                y = shape.y + shape.centerOfMass.y
-                z = shape.z + shape.centerOfMass.z
+                x = 0// + shape.centerOfMass.x
+                y = 0// + shape.centerOfMass.y
+                z = 0// + shape.centerOfMass.z
                 var ar = Coordinates.GetShaderCoord(x+renderer.offsetX,
                                                     y+renderer.offsetY,
                                                     z+renderer.offsetZ,
@@ -2727,6 +2801,10 @@
            !sizing){
           clickReady = false
         }
+        ctx.textAlign = 'left'
+        ctx.fillStyle = '#fff'
+        ctx.fillText('undoQueue.length :   ' + undoQueue.length, 200, 200)
+        ctx.fillText('undoQueueIdx         :   ' + undoQueueIdx, 200, 200 + fs)
       }
       
     </script>
