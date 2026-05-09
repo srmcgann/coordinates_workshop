@@ -252,8 +252,8 @@
       var targYaw = renderer.yaw
       var targX = 0, targY = 0, targZ = 0, targD = 0
       var targPitch = renderer.pitch
-      var homing = 4
-      var gyroHoming = 4
+      var homing = 2
+      var gyroHoming = 2
       var zoomHoming = 32
       var moveHoming = 32
       var orientationInProgress = false
@@ -832,6 +832,172 @@
         }
       ]
       
+      /*
+      var samples5 =
+      [
+        {
+          url:  'https://srmcgann.github.io/objs/sea_turtle.obj',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/absurdTurtles',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/angel 7',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/cathedral',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/chainLoops',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/dining room',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/eggcrate',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/eggcrate 2',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/ignoreList',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/island',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/maze arena 1',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/new double funnel',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/new spiral platform',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/piano',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/portal',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/pyramid',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/satellite',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/shapeFromArray',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/shooter',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/simple gem',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/skatepark',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/spiral_platform2',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/spiral_platforms',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/surface to air gun',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/testEnvironment',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/testEnvironment2',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/testTerrain',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/thornus knot',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/torus tree thing',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/vase',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/violin',
+          map:  '',
+          name: '',
+        },
+        {
+          url:    'https://srmcgann.github.io/objs2/vortexBase',
+          map:  '',
+          name: '',
+        },
+      ]
+      */
+      
       samples.map(v => {
         var l = v.url.split('/')
         l = l[l.length-1].split('.')
@@ -856,10 +1022,20 @@
         v.name = l[l.length-2].replaceAll('_', ' ')
       })
       
+      /*
+      samples5.map(v => {
+        console.log(v)
+        var l = v.url.split('/')
+        l = l[l.length-1].split('.')
+        v.name = l[l.length-2].replaceAll('_', ' ')
+      })
+      */
+      
       samples.sort((a,b) => b.name.length - a.name.length)
       samples2.sort((a,b) => b.name.length - a.name.length)
       samples3.sort((a,b) => b.name.length - a.name.length)
       samples4.sort((a,b) => b.name.length - a.name.length)
+      //samples5.sort((a,b) => b.name.length - a.name.length)
       
       
       var keys = Array(256).fill(false)
@@ -897,19 +1073,66 @@
                   }
                 })
               break
+              case 'state change':
+                undoItem.items.forEach(item => {
+                  switch(undoItem.type){
+                    case 'bool':
+                      var items = undoItem.items
+                      eval(undoItem.command)
+                    break
+                    default:
+                    break
+                  }
+                })
+              break
               default:
               break
             }
           break
           case 1:
+            //if(undoQueueIdx >= 0 ) undoQueueIdx--
             if(undoQueueIdx < undoQueue.length - 1){
               undoQueueIdx++
               var undoItem = undoQueue[undoQueueIdx]
-              undoItem.items.forEach(item => {
-                eval(`${undoItem.source} = ${undoItem.source}.filter(v=>v.hash!=item.hash)`)
-              })
+              if(typeof undoItem?.action == 'undefined') return
+              switch(undoItem.action){
+                case 'del':
+                  undoItem.items.forEach(item => {
+                    eval(`${undoItem.source} = ${undoItem.source}.filter(v=>v.hash!=item.hash)`)
+                  })
+                break
+                case 'state change':
+                  undoItem.items.forEach(item => {
+                    switch(undoItem.type){
+                      case 'bool':
+                        var items = undoItem.items
+                        eval(undoItem.command)
+                      break
+                      default:
+                      break
+                    }
+                  })
+                break
+              }
             }
           break
+        }
+      }
+      
+      const PushHistory = (action, command, type, source, items) => {
+        if(shapes.length){
+          undoQueue = undoQueue.filter((v, i) => i < undoQueueIdx+1)
+          undoQueueIdx++
+          undoQueue.push({
+            command,
+            action,
+            type,
+            source,
+            items
+          })
+          if(undoQueue.length > maxUndoHistoryLength){
+            undoQueue.shift()
+          }
         }
       }
       
@@ -918,6 +1141,12 @@
           if(state && keyTimers[keyCode] < renderer.t){
             switch(keyCode){
               case 32:
+                keyTimers[keyCode] = renderer.t + keyTimerInterval
+              break
+              case 89: // y
+                if(keys[17]){ // ctrl y
+                  Undo(1)
+                }
                 keyTimers[keyCode] = renderer.t + keyTimerInterval
               break
               case 90: // z
@@ -930,24 +1159,20 @@
                 }
                 keyTimers[keyCode] = renderer.t + keyTimerInterval * 2
               break
-              case 46:
-                if(shapes.length){
-                  undoQueue = undoQueue.filter((v, i) => i < undoQueueIdx+1)
-                  var command = `
-                  shapes = shapes.filter((v, i)=>v.name != 'scene shape' || !v.selected)`
-                  undoQueueIdx++
-                  undoQueue.push({
-                    command,
-                    action: 'del',
-                    type: 'array',
-                    source: 'shapes',
-                    items: shapes.filter((v, i)=>v.name == 'scene shape' && v.selected)
-                  })
-                  if(undoQueue.length > maxUndoHistoryLength){
-                    undoQueue.shift()
-                  }
+              case 65: // a
+                if(keys[17]){ // ctrl a
+                  var state = !shapes.filter(v=>v.name == 'scene shape').length == shapes.filter(v=>v.name == 'scene shape' && v.selected).length
+                     
+                  shapes.filter(v=>v.name == 'scene shape').map(v=>v.selected=state)
+                  keyTimers[keyCode] = renderer.t + keyTimerInterval
                 }
-                
+              break
+              case 46: // [DEL]
+                var command = `
+                shapes = shapes.filter((v, i)=>v.name != 'scene shape' || !v.selected)`
+                var action = 'del', type = 'array', source = 'shapes'
+                var items = shapes.filter((v, i)=>v.name == 'scene shape' && v.selected)
+                PushHistory( action, command, type, source, items )
                 eval(command)
                 
                 keyTimers[keyCode] = renderer.t + keyTimerInterval
@@ -1279,6 +1504,19 @@
                                                   '${sample.url}', -1)`)
               }
             })
+          /*
+          el2 = PushMenuItem(el, 'samples 5')
+            samples4.map(sample => {
+              if(sample.map){
+                el3 = PushMenuItem(el2, sample.name, `Import('obj', false,
+                                                  '${sample.url}',
+                                                  '${sample.map}')`)
+              }else{
+                el3 = PushMenuItem(el2, sample.name, `Import('obj', false,
+                                                  '${sample.url}', -1)`)
+              }
+            })
+            */
           el2 = PushMenuItem(el, 'shapes')
           for(var n = 0; n < 3; n++){
             el3 = PushMenuItem(el2, `subdivisions ${n}`)
@@ -2681,12 +2919,20 @@
                   ctx.fillRect(ar[0]-s/2, ar[1]-s/2,s,s)
                   if(clickReady && renderer.mouseButton == 1){
                     clickReady = false
-                    shape.selected = !shape.selected
+
+                    var items = shapes.filter(v=>v.hash==shape.hash)
+                    var command = ` items.map(v=>v.selected = !v.selected)`
+                    var action = 'state change'
+                    var type = 'bool'
+                    var source = shapes
+                    PushHistory( action, command, type, source, items )
+                    //shape.selected = !shape.selected
+                    setTimeout(()=>{eval(command)},0)
                   }
                 }
                 if(shape.selected){
                   ctx.fillStyle = '#0f4a'
-                  ctx.fillRect(ar[0]-s/8, ar[1]-s/8,s/4,s/4)
+                  ctx.fillRect(ar[0]-s/4, ar[1]-s/4,s/2,s/2)
                 }
                 
                 
@@ -2801,10 +3047,11 @@
            !sizing){
           clickReady = false
         }
-        ctx.textAlign = 'left'
-        ctx.fillStyle = '#fff'
-        ctx.fillText('undoQueue.length :   ' + undoQueue.length, 200, 200)
-        ctx.fillText('undoQueueIdx         :   ' + undoQueueIdx, 200, 200 + fs)
+        
+        //ctx.textAlign = 'left'
+        //ctx.fillStyle = '#fff'
+        //ctx.fillText('undoQueue.length :   ' + undoQueue.length, 200, 200)
+        //ctx.fillText('undoQueueIdx         :   ' + undoQueueIdx, 200, 200 + fs)
       }
       
     </script>
