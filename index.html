@@ -281,12 +281,19 @@
       var maxToolsSize = 100
       var minToolsSize = 25
       var gridScale = .2325
-      var curTool = ''
+      var curTool = 'select'
       var sizing = false
       var undoQueue = []
       var undoQueueIdx = -1
       var maxUndoHistoryLength = 25
-      
+      var marquisTop = 0
+      var marquisLeft = 0
+      var marquisInProgress = false
+      var toolsIncInProgress = false
+      var toolsDecInProgress = false
+      var gyroIncInProgress = false
+      var gyroDecInProgress = false
+      var curSel = []
       
       var shaderOptions = [
         {lighting: {type: 'ambientLight', value: 1}},
@@ -1059,33 +1066,16 @@
           case -1:
             if(undoQueue.length < 1) return
             var undoItem = undoQueue[undoQueueIdx]
+            console.log(undoItem)
             if(undoQueueIdx >= 0 ) undoQueueIdx--
             if(typeof undoItem?.action == 'undefined') return
+            var undoItems = undoItem.undoItems
             switch(undoItem.action){
-              case 'del':
-                undoItem.items.forEach(item => {
-                  switch(undoItem.type){
-                    case 'array':
-                      eval(`${undoItem.source}.push(item)`)
-                    break
-                    default:
-                    break
-                  }
-                })
+              case 'delete':
+                eval(undoItem.undoCommand)
               break
               case 'state change':
-                undoItem.items.forEach(item => {
-                  switch(undoItem.type){
-                    case 'bool':
-                      var items = undoItem.items
-                      eval(undoItem.command)
-                    break
-                    default:
-                    break
-                  }
-                })
-              break
-              default:
+                eval(undoItem.undoCommand)
               break
             }
           break
@@ -1095,18 +1085,16 @@
               undoQueueIdx++
               var undoItem = undoQueue[undoQueueIdx]
               if(typeof undoItem?.action == 'undefined') return
+              var redoItems = undoItem.redoItems
               switch(undoItem.action){
-                case 'del':
-                  undoItem.items.forEach(item => {
-                    eval(`${undoItem.source} = ${undoItem.source}.filter(v=>v.hash!=item.hash)`)
-                  })
+                case 'delete':
+                  eval(redoItem.redoCommand)
                 break
                 case 'state change':
-                  undoItem.items.forEach(item => {
+                  undoItem.redoItems.forEach(item => {
                     switch(undoItem.type){
                       case 'bool':
-                        var items = undoItem.items
-                        eval(undoItem.command)
+                        eval(undoItem.redoCommand)
                       break
                       default:
                       break
@@ -1119,16 +1107,19 @@
         }
       }
       
-      const PushHistory = (action, command, type, source, items) => {
+      const PushHistory = (action, undoCommand, type,
+                           undoItems, redoCommand='',
+                           redoItems=[]) => {
         if(shapes.length){
           undoQueue = undoQueue.filter((v, i) => i < undoQueueIdx+1)
           undoQueueIdx++
           undoQueue.push({
-            command,
             action,
             type,
-            source,
-            items
+            undoCommand,
+            undoItems,
+            redoItems,
+            redoCommand,
           })
           if(undoQueue.length > maxUndoHistoryLength){
             undoQueue.shift()
@@ -1168,13 +1159,25 @@
                 }
               break
               case 46: // [DEL]
-                var command = `
-                shapes = shapes.filter((v, i)=>v.name != 'scene shape' || !v.selected)`
-                var action = 'del', type = 'array', source = 'shapes'
-                var items = shapes.filter((v, i)=>v.name == 'scene shape' && v.selected)
-                PushHistory( action, command, type, source, items )
-                eval(command)
+
+                var action = 'delete', type = 'array'
                 
+                
+                var undoItems   = shapes.filter(v=>v.selected)
+                var undoCommand = `undoItems.forEach(v=>{shapes.push(v)})`
+                var redoItems   = []
+                shapes.forEach(v=>{ redoItems.push(v) })
+                var redoCommand = `
+                  shapes = []
+                  redoItems.forEach(v => { shapes.push(v) })
+                `
+                
+                shapes = shapes.filter(v=>!v.selected)
+                
+                PushHistory( action, undoCommand, type,
+                             undoItems, redoCommand, redoItems  )
+
+
                 keyTimers[keyCode] = renderer.t + keyTimerInterval
               break
             }
@@ -1202,7 +1205,7 @@
       var C = Math.cos
       var Rn = Math.random
 
-      var x, y, z, p, q, d
+      var x, y, z, p, q, a, b, d, e
 
       Coordinates.AnimationLoop(renderer, 'Draw')
 
@@ -1225,7 +1228,7 @@
           targD *= 1.2
         }
       })
-
+      
       window.addEventListener('mouseup', e => {
         omx=mx
         omy=my
@@ -1237,6 +1240,53 @@
         gyroClusterMoveInProgress = false
         toolsClusterMoveInProgress = false
         sizing = false
+        toolsDecInProgress = false
+        toolsIncInProgress = false
+        gyroDecInProgress = false
+        gyroIncInProgress = false
+        
+        switch(curTool){
+          case 'select':
+            if(marquisInProgress){
+              var updatedSel = false
+              var l = shapes.filter((v, i) => v.selected)
+              curSel.forEach((v, i) => {
+                if(v.selected != shapes.filter(q=>q.hash==v.hash)[0].selected){
+                  updatedSel = true
+                }
+              })
+              if(updatedSel){
+              
+
+                var action = 'state change', type = 'bool'
+                a = []
+                curSel.forEach(v=>{
+                  a.push({ hash: v.hash, selected: v.selected})
+                })
+                var undoItems = a
+                
+                b = []
+                shapes.forEach(v=>{
+                  b.push({ hash: v.hash, selected: v.selected})
+                })
+                var redoItems = b
+                var undoCommand = `undoItems.forEach(v=>{
+                  shapes.filter(q=>q.hash==v.hash)[0].selected = v.selected
+                })`
+                var redoCommand = `redoItems.forEach(v=>{
+                  shapes.filter(q=>q.hash==v.hash)[0].selected = v.selected
+                })`
+                PushHistory( action, undoCommand, type,
+                             undoItems, redoCommand, redoItems  )
+
+
+              }
+            }
+          break
+          default:
+          break
+        }
+        marquisInProgress = false
       })
 
       window.addEventListener('mousemove', e => {
@@ -1520,13 +1570,14 @@
           el2 = PushMenuItem(el, 'shapes')
           for(var n = 0; n < 3; n++){
             el3 = PushMenuItem(el2, `subdivisions ${n}`)
-            for(var m = -2; m < 10; m += 1){
-              el4 = PushMenuItem(el3, `sphereize ${m}`)
-                PushMenuItem(el4, 'tetrahedron', `LoadSceneShape('', 'tetrahedron', '', false, ${n}, ${m})`)
-                PushMenuItem(el4, 'cube', `LoadSceneShape('', 'cube', '', false, ${n}, ${m})`)
-                PushMenuItem(el4, 'octahedron', `LoadSceneShape('', 'octahedron', '', false, ${n}, ${m})`)
-                PushMenuItem(el4, 'dodecahedron', `LoadSceneShape('', 'dodecahedron', '', false, ${n}, ${m})`)
-                PushMenuItem(el4, 'icosahedron', `LoadSceneShape('', 'icosahedron', '', false, ${n}, ${m})`)
+            for(var m = -8; m < 17; m += 1){
+              var sphereizeVal = m/4
+              el4 = PushMenuItem(el3, `sphereize ${sphereizeVal}`)
+                PushMenuItem(el4, 'tetrahedron', `LoadSceneShape('', 'tetrahedron', '', false, ${n}, ${sphereizeVal})`)
+                PushMenuItem(el4, 'cube', `LoadSceneShape('', 'cube', '', false, ${n}, ${sphereizeVal})`)
+                PushMenuItem(el4, 'octahedron', `LoadSceneShape('', 'octahedron', '', false, ${n}, ${sphereizeVal})`)
+                PushMenuItem(el4, 'dodecahedron', `LoadSceneShape('', 'dodecahedron', '', false, ${n}, ${sphereizeVal})`)
+                PushMenuItem(el4, 'icosahedron', `LoadSceneShape('', 'icosahedron', '', false, ${n}, ${sphereizeVal})`)
               }
             }
             PushMenuItem(el2, 'sphere', `LoadSceneShape('', 'sphere', '', false)`)
@@ -1631,6 +1682,8 @@
             menuBarHeight + secondaryMenuRows *
             secondaryMenuBarHeight + gyroClusterOffsetY
         var sd =32
+
+        var gyroToolhover = false
         var gyrohover = false
         var zoomhover = false
         var movehover = false
@@ -1724,6 +1777,10 @@
         }
         
         if(!hovering){
+          if(clickReady && !gyroClusterMoveInProgress && 
+             Coordinates.PointInPoly2D(mx,my,gyroClusterBody)){
+            gyroToolhover = true
+          }
           if(clickReady && !(moveInProgress || zoomInProgress) && 
              Math.hypot(gyroPosX-mx, gyroPosY-my) < gyroSize*1.25 || orientationInProgress){
             gyrohover = true
@@ -1812,10 +1869,12 @@
               clickReady = false
               showGrid = !showGrid
             }
-          }else if(clickReady && !(moveInProgress || zoomInProgress || orientationInProgress) &&
+          }else if(gyroIncInProgress || clickReady && !(moveInProgress || zoomInProgress || orientationInProgress) &&
                      Math.hypot(incPosX-mx, incPosY-my) < incSize*1.25){
             inchover = true
-            if(inchover && renderer.mouseButton == 1 && clickReady){
+            if(gyroIncInProgress || inchover && renderer.mouseButton == 1 && clickReady){
+              clickReady = false
+              gyroIncInProgress = true
               sizing = true
               gyroSize *= 1.015
               gyroSize = Math.min(maxGyroSize, gyroSize)
@@ -1828,10 +1887,12 @@
               gyroClusterOffsetX += mx - (gpx + gs * 1.2)
               gyroClusterOffsetY += my - (gpy - gs)
             }
-          }else if(clickReady && !(moveInProgress || zoomInProgress || orientationInProgress) &&
+          }else if(gyroDecInProgress || clickReady && !(moveInProgress || zoomInProgress || orientationInProgress) &&
                      Math.hypot(decPosX-mx, decPosY-my) < decSize*1.25){
             dechover = true
-            if(dechover && renderer.mouseButton == 1 && clickReady){
+            if(gyroDecInProgress || dechover && renderer.mouseButton == 1 && clickReady){
+              clickReady = false
+              gyroDecInProgress = true
               sizing = true
               gyroSize /= 1.015
               gyroSize = Math.max(minGyroSize, gyroSize)
@@ -1845,6 +1906,11 @@
               gyroClusterOffsetY += my- (gpy - gs)
             }
           }
+        }
+        
+        if(gyroToolhover) document.body.style.cursor = 'default'
+        if(zoomhover || movehover || gridhover || isohover || inchover || dechover || gyroHandleHover){
+              document.body.style.cursor = 'pointer'
         }
         
         ctx.beginPath()
@@ -2232,7 +2298,7 @@
         
         if(!hovering){
           if(clickReady && !toolsClusterMoveInProgress && 
-             Math.hypot(toolsPosX-mx, toolsPosY-my) < toolsSize*1.25){
+             Coordinates.PointInPoly2D(mx,my,toolsClusterBody)){
             toolshover = true
           }
           if(clickReady &&
@@ -2275,10 +2341,12 @@
               curTool = 'multi'
               console.log(curTool)
             }
-          }else if(clickReady && !(moveInProgress || zoomInProgress || orientationInProgress) &&
+          }else if(toolsIncInProgress || clickReady && !(moveInProgress || zoomInProgress || orientationInProgress) &&
                      Math.hypot(incPosX-mx, incPosY-my) < incSize*1.25){
             inchover = true
-            if(inchover && renderer.mouseButton == 1 && clickReady){
+            if(toolsIncInProgress || inchover && renderer.mouseButton == 1 && clickReady){
+              clickReady = false
+              toolsIncInProgress = true
               sizing = true
               toolsSize *= 1.015
               toolsSize = Math.min(maxToolsSize, toolsSize)
@@ -2290,10 +2358,12 @@
               toolsClusterOffsetX += mx - (gpx + gs)
               toolsClusterOffsetY += my - (gpy - gs)
             }
-          }else if(clickReady && !(moveInProgress || zoomInProgress || orientationInProgress) &&
+          }else if(toolsDecInProgress || clickReady && !(moveInProgress || zoomInProgress || orientationInProgress) &&
                      Math.hypot(decPosX-mx, decPosY-my) < decSize*1.25){
             dechover = true
-            if(dechover && renderer.mouseButton == 1 && clickReady){
+            if(toolsDecInProgress || dechover && renderer.mouseButton == 1 && clickReady){
+              clickReady = false
+              toolsDecInProgress = true
               sizing = true
               toolsSize /= 1.015
               toolsSize = Math.min(maxToolsSize, toolsSize)
@@ -2306,8 +2376,16 @@
               toolsClusterOffsetY += my - (gpy - gs)
             }
           }
-        }
           
+          if(orientationInProgress){
+            document.body.style.cursor = 'default'
+          }else{
+            if(toolshover) document.body.style.cursor = 'default'
+            if(selecthover || movehover || rotatehover || scalehover || multihover || inchover || dechover || toolsHandleHover){
+              document.body.style.cursor = 'pointer'
+            }
+          }
+        }
         
         ctx.beginPath()
         for(var j=0; j<sd; j++){
@@ -2677,9 +2755,9 @@
           map,
           sphereize,
           subs,
-          x: (Rn() - .5) * 4,
+          x: (Rn() - .5) * 10,
           y: 0,
-          z: (Rn() - .5) * 4,
+          z: (Rn() - .5) * 10,
           name: 'scene shape',
           color: 0xffffff,
           colorMix: map?0:.25,
@@ -2800,6 +2878,29 @@
         ctx.clearRect(0,0,w, h)
         
         DoKeys()
+
+        if(hovering){
+          document.body.style.cursor = 'pointer'
+        }else{
+          document.body.style.cursor = 'default'
+        }
+
+        switch(curTool){
+          case 'select':
+            document.body.style.cursor = 'crosshair'
+          break
+          case 'move':
+            document.body.style.cursor = 'url(https://srmcgann.github.io/coordinates_workshop/assets/moveCursor.png) 20 20, auto'
+          break
+          case 'rotate':
+            document.body.style.cursor = 'url(https://srmcgann.github.io/coordinates_workshop/assets/rotateCursor.png) 20 20, auto'
+          break
+          case 'scale':
+          break
+          case 'multi':
+            document.body.style.cursor = 'url(https://srmcgann.github.io/coordinates_workshop/assets/multiCursor.png) 20 20, auto'
+          break
+        }
         
         while(Math.abs(targYaw-renderer.yaw) > Math.PI){
           renderer.yaw += targYaw < renderer.yaw ? -Math.PI*2 : Math.PI*2
@@ -2861,28 +2962,9 @@
             break
             case 'scene shape':
               if(1){
-                /*
-                var bounding = Coordinates.ShowBounding(shape, shape.renderer, false)
-                
-                if(Coordinates.PointInPoly2D(mx, my, bounding)){
-                  shape.boundingColor = 0xff8800
-                  Coordinates.ShowBounding(shape, renderer, true, -1,true, 0, 5)
-                  if(clickReady && renderer.mouseButton == 1){
-                    clickReady = false
-                    shape.selected = !shape.selected
-                  }
-                }
-                if(shape.selected){ 
-                  shape.boundingColor = 0x00ff44
-                  Coordinates.ShowBounding(shape, renderer, true, -1,true, 0, 10)
-                }
-                */
-                x = 0// + shape.centerOfMass.x
-                y = 0// + shape.centerOfMass.y
-                z = 0// + shape.centerOfMass.z
-                var ar = Coordinates.GetShaderCoord(x+renderer.offsetX,
-                                                    y+renderer.offsetY,
-                                                    z+renderer.offsetZ,
+                var ar = Coordinates.GetShaderCoord(renderer.offsetX,
+                                                    renderer.offsetY,
+                                                    renderer.offsetZ,
                                                     shape,
                             {
                               x: 0,
@@ -2900,42 +2982,74 @@
                               fov: renderer.fov,
                             })
                 var s = 50
-                if(showGrid){
-                  ctx.strokeStyle = '#0008'
-                  ctx.lineWidth = 4
-                  ctx.strokeRect(ar[0]-s/2, ar[1]-s/2,s,s)
-                  ctx.strokeStyle = '#fff8'
-                  ctx.lineWidth = 2
-                  ctx.strokeRect(ar[0]-s/2, ar[1]-s/2,s,s)
-                  ctx.font = (fs=18) + 'px "Source Sans 3"'
-                  ctx.strokeStyle = '#000c'
-                  ctx.lineWidth = 2
-                  ctx.strokeText(shape.userName, ar[0], ar[1]-s/2 - fs)
-                  ctx.fillStyle = '#fffc'
-                  ctx.fillText(shape.userName, ar[0], ar[1]-s/2 - fs)
-                }
-                if((d = Math.hypot(mx - ar[0], my - ar[1])) < 40){
-                  ctx.fillStyle = '#f808'
-                  ctx.fillRect(ar[0]-s/2, ar[1]-s/2,s,s)
-                  if(clickReady && renderer.mouseButton == 1){
-                    clickReady = false
+                shape.cx = ar[0]
+                shape.cy = ar[1]
+                switch(curTool){
+                  case 'select':
+                    if(showGrid){
+                      ctx.strokeStyle = '#0008'
+                      ctx.lineWidth = 4
+                      ctx.strokeRect(ar[0]-s/2, ar[1]-s/2,s,s)
+                      ctx.strokeStyle = '#fff8'
+                      ctx.lineWidth = 2
+                      ctx.strokeRect(ar[0]-s/2, ar[1]-s/2,s,s)
+                      ctx.font = (fs=18) + 'px "Source Sans 3"'
+                      ctx.strokeStyle = '#000c'
+                      ctx.lineWidth = 2
+                      ctx.strokeText(shape.userName, ar[0], ar[1]-s/2 - fs)
+                      ctx.fillStyle = '#fffc'
+                      ctx.fillText(shape.userName, ar[0], ar[1]-s/2 - fs)
+                    }
+                    
+                    if((d = Math.hypot(mx - ar[0], my - ar[1])) < 40){
+                      ctx.fillStyle = '#f808'
+                      ctx.fillRect(ar[0]-s/2, ar[1]-s/2,s,s)
+                      if(clickReady && renderer.mouseButton == 1){
+                        clickReady = false
 
-                    var items = shapes.filter(v=>v.hash==shape.hash)
-                    var command = ` items.map(v=>v.selected = !v.selected)`
-                    var action = 'state change'
-                    var type = 'bool'
-                    var source = shapes
-                    PushHistory( action, command, type, source, items )
-                    //shape.selected = !shape.selected
-                    setTimeout(()=>{eval(command)},0)
-                  }
+                        var action = 'state change', type = 'bool'
+                        a = []
+                        shapes.forEach(v=>{
+                          a.push({ hash: v.hash, selected: v.selected})
+                        })
+                        var undoItems = a
+                        
+                        shape.selected = !shape.selected
+                        
+                        b = []
+                        shapes.forEach(v=>{
+                          b.push({ hash: v.hash, selected: v.selected})
+                        })
+                        var redoItems = b
+                        var undoCommand = `undoItems.forEach(v=>{
+                          shapes.filter(q=>q.hash==v.hash)[0].selected = v.selected
+                        })`
+                        var redoCommand = `redoItems.forEach(v=>{
+                          shapes.filter(q=>q.hash==v.hash)[0].selected = v.selected
+                        })`
+                        PushHistory( action, undoCommand, type,
+                                     undoItems, redoCommand, redoItems  )
+                        eval(redoCommand)
+                      }
+                    }
+                    
+                    if(shape.selected){
+                      ctx.fillStyle = '#0f4a'
+                      ctx.fillRect(ar[0]-s/4, ar[1]-s/4,s/2,s/2)
+                    }
+                  break
+                  case 'move':
+                    if(shape.selected){
+                      ctx.fillStyle = '#0008'
+                      ctx.fillRect(ar[0]-s/4, ar[1]-s/4,s/2,s/2)
+                      ctx.fillStyle = '#ff08'
+                      ctx.fillRect(ar[0]-s/8, ar[1]-s/8,s/4,s/4)
+                    }
+                  break
+                  default:
+                  break
                 }
-                if(shape.selected){
-                  ctx.fillStyle = '#0f4a'
-                  ctx.fillRect(ar[0]-s/4, ar[1]-s/4,s/2,s/2)
-                }
-                
-                
+
                 /*
                 var cursorSprite = spriteArray.shapeData[0]
                 if(ar){
@@ -3038,11 +3152,104 @@
         DrawMainTools()
         DrawMainMenus()
         
-        if(hovering){
-          document.body.style.cursor = 'pointer'
-        }else{
-          document.body.style.cursor = 'default'
+        switch(curTool){
+          case 'select':
+            if(clickReady && renderer.mouseButton == 1){
+              clickReady = false
+              marquisInProgress = true
+              marquisLeft = mx
+              marquisTop = my
+              curSel = []
+              shapes.forEach((v, i) => {
+                curSel.push({
+                  hash: v.hash,
+                  selected: v.selected
+                })
+              })
+            }
+            if(marquisInProgress){
+              ctx.strokeStyle = '#2f8a'
+              ctx.lineWidth = 2
+              ctx.setLineDash([5, 5])
+              ctx.strokeRect(a = marquisLeft, b = marquisTop,
+                             mx-marquisLeft, my-marquisTop)
+              d = mx, e = my
+              var temp
+              if(d < a){
+                temp = a
+                a = d
+                d = temp
+              }
+              if(e < b){
+                temp = b
+                b = e
+                e = temp
+              }
+              shapes.filter(v=>v.name == 'scene shape').map((v, i) => {
+                v.selected = v.cx > a && v.cx < d && v.cy > b && v.cy < e
+              })
+              
+              ctx.setLineDash([])
+            }
+            
+          break
+          case 'move':
+            var ax = 0
+            var ay = 0
+            var az = 0
+            var ct = 0
+            shapes.filter(v=>v.name == 'scene shape').map((v, i) => {
+              if(v.selected){
+                ax += v.centerOfMass.x + v.x
+                ay += v.centerOfMass.y + v.y
+                az += v.centerOfMass.z + v.z
+                ct++
+              }
+            })
+            ax /= ct
+            ay /= ct
+            az /= ct
+            var ar = Coordinates.GetShaderCoord(renderer.offsetX,
+                                                renderer.offsetY,
+                                                renderer.offsetZ,
+                                                {
+                                                x: ax, y: ay, z: az,
+                                                roll: 0, pitch: 0, yaw: 0,
+                                                },
+                        {
+                          x: 0,
+                          y: 0,
+                          z: renderer.z,
+                          roll: 0,
+                          pitch: targPitch,
+                          yaw: targYaw,
+                          cameraMode: '',
+                          width: renderer.width,
+                          height: renderer.height,
+                          offsetX: 0,
+                          offsetY: 0,
+                          offsetZ: 0,
+                          fov: renderer.fov,
+                        })
+            if(ar){
+              var s = 50
+              ctx.strokeStyle = '#0008'
+              ctx.lineWidth = 4
+              ctx.strokeRect(ar[0]-s/2, ar[1]-s/2,s,s)
+              ctx.strokeStyle = '#fff8'
+              ctx.lineWidth = 2
+              ctx.strokeRect(ar[0]-s/2, ar[1]-s/2,s,s)
+            
+              ctx.fillStyle = '#0f4a'
+              ctx.fillRect(ar[0]-s/4, ar[1]-s/4,s/2,s/2)
+            }
+            
+          break
+          default:
+          break
         }
+
+        
         if(clickReady && renderer.mouseButton == 1 &&
            !sizing){
           clickReady = false
