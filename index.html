@@ -293,7 +293,10 @@
       var toolsDecInProgress = false
       var gyroIncInProgress = false
       var gyroDecInProgress = false
+      var shapeRotationInProgress = false
       var curSel = []
+      var shapeRotationSel = [0,0,0]
+      var shapeRotationAxis = ''
       
       var shaderOptions = [
         {lighting: {type: 'ambientLight', value: 1}},
@@ -1244,6 +1247,7 @@
         toolsIncInProgress = false
         gyroDecInProgress = false
         gyroIncInProgress = false
+        shapeRotationInProgress = false
         
         switch(curTool){
           case 'select':
@@ -2737,15 +2741,18 @@
         ]
         var newShader = await Coordinates.BasicShader(renderer, shaderOptions)
         var averageNormals=false, sphereize, subs
+        var flipNormals = false
         if((shapeType == 'tetrahedron' ||
             shapeType == 'cube' ||
             shapeType == 'octahedron' ||
             shapeType == 'dodecahedron' ||
             shapeType == 'icosahedron')){
+            flipNormals = true
           if(sphereize){
             averageNormals = true
           }
         }else{
+          flipNormals = false
           subs = 0
           sphereize = 0
         }
@@ -2755,10 +2762,12 @@
           map,
           sphereize,
           subs,
-          x: (Rn() - .5) * 10,
+          x: (Rn() - .5) * 25,
           y: 0,
-          z: (Rn() - .5) * 10,
+          z: (Rn() - .5) * 25,
           name: 'scene shape',
+          //showNormals: true,
+          flipNormals,
           color: 0xffffff,
           colorMix: map?0:.25,
           averageNormals,
@@ -3038,7 +3047,7 @@
                       ctx.fillRect(ar[0]-s/4, ar[1]-s/4,s/2,s/2)
                     }
                   break
-                  case 'move':
+                  case 'move': case 'rotate':
                     if(shape.selected){
                       ctx.fillStyle = '#0008'
                       ctx.fillRect(ar[0]-s/4, ar[1]-s/4,s/2,s/2)
@@ -3194,6 +3203,8 @@
             
           break
           case 'move':
+          break
+          case 'rotate':
             var ax = 0
             var ay = 0
             var az = 0
@@ -3206,9 +3217,10 @@
                 ct++
               }
             })
-            ax /= ct
-            ay /= ct
-            az /= ct
+            var ax_ = ax /= ct
+            var ay_ = ay /= ct
+            var az_ = az /= ct
+            
             var ar = Coordinates.GetShaderCoord(renderer.offsetX,
                                                 renderer.offsetY,
                                                 renderer.offsetZ,
@@ -3216,21 +3228,21 @@
                                                 x: ax, y: ay, z: az,
                                                 roll: 0, pitch: 0, yaw: 0,
                                                 },
-                        {
-                          x: 0,
-                          y: 0,
-                          z: renderer.z,
-                          roll: 0,
-                          pitch: targPitch,
-                          yaw: targYaw,
-                          cameraMode: '',
-                          width: renderer.width,
-                          height: renderer.height,
-                          offsetX: 0,
-                          offsetY: 0,
-                          offsetZ: 0,
-                          fov: renderer.fov,
-                        })
+                          {
+                            x: 0,
+                            y: 0,
+                            z: renderer.z,
+                            roll: 0,
+                            pitch: targPitch,
+                            yaw: targYaw,
+                            cameraMode: '',
+                            width: renderer.width,
+                            height: renderer.height,
+                            offsetX: 0,
+                            offsetY: 0,
+                            offsetZ: 0,
+                            fov: renderer.fov,
+                          })
             if(ar){
               var s = 50
               ctx.strokeStyle = '#0008'
@@ -3244,6 +3256,242 @@
               ctx.fillRect(ar[0]-s/4, ar[1]-s/4,s/2,s/2)
             }
             
+            var sd = 32
+            var ls = 100
+            var cx = ar[0]
+            var cy = ar[1]
+            ctx.beginPath()
+            for(var i = 0; i < sd; i++){
+              a = [S(p=Math.PI*2/sd*i), C(p), 0]
+              x = cx + a[0] * ls
+              y = cy + a[1] * ls
+              ctx.lineTo(x, y)
+            }
+            ctx.lineWidth = 2
+            ctx.closePath()
+            ctx.strokeStyle = '#fff8'
+            ctx.stroke()
+            
+            if(!shapeRotationInProgress) {
+              shapeRotationSel = [0,0,0]
+              shapeRotationAxis = ''
+            }
+            for(var m=3; m--;){
+              b = []
+              for(var i = 0; i < sd; i++){
+                a = [S(p=Math.PI*2/sd*i+Math.PI/2), 0, C(p)]
+                x = a[(m+0)%3]
+                y = a[(m+1)%3]
+                z = a[(m+2)%3]
+                p = Math.atan2(x, z) + renderer.yaw
+                d = Math.hypot(x, z)
+                x = S(p) * d
+                z = C(p) * d
+                p = Math.atan2(y, z) + renderer.pitch
+                d = Math.hypot(y, z)
+                y = S(p) * d
+                z = C(p) * d
+                if(z<.01){
+                  var ax = 0
+                  var ay = 0
+                  z+=200
+                  b.push([ax=cx+x/z*ls*1.5*100, ay=cy+y/z*ls*1.5*100])
+                  a = [S(p=Math.PI*2/sd*(i+1)+Math.PI/2), 0, C(p)]
+                  x = a[(m+0)%3]
+                  y = a[(m+1)%3]
+                  z = a[(m+2)%3]
+                  p = Math.atan2(x, z) + renderer.yaw
+                  d = Math.hypot(x, z)
+                  x = S(p) * d
+                  z = C(p) * d
+                  p = Math.atan2(y, z) + renderer.pitch
+                  d = Math.hypot(y, z)
+                  y = S(p) * d
+                  z = C(p) * d
+                  z+=200
+                  b.push([cx+x/z*ls*1.5*100, cy+y/z*ls*1.5*100])
+                  ax+=cx+x/z*ls*1.5*100, ay+=cy+y/z*ls*1.5*100
+                  ax/=2
+                  ay/=2
+                  if(!shapeRotationInProgress){
+                    if(!shapeRotationSel.filter(v=>v).length &&
+                             Math.hypot(mx-ax, my-ay) < 10) {
+                      shapeRotationSel[m] = 1
+                      switch(m){
+                        case 0: shapeRotationAxis = 'yaw'
+                        break
+                        case 1: shapeRotationAxis = 'pitch'
+                        break
+                        case 2: shapeRotationAxis = 'roll'
+                        break
+                      }
+                    }
+                  }
+                }
+              }
+              ctx.lineJoin = ctx.lineCap = 'round'
+              for(var i = 0; i < b.length; i+=2){
+                ctx.beginPath()
+                ctx.lineTo(b[i][0], b[i][1])
+                ctx.lineTo(b[i+1][0], b[i+1][1])
+                ctx.lineWidth = shapeRotationSel[m] ? 8 :  4
+                switch(m){
+                  case 0: ctx.strokeStyle = shapeRotationSel[0] ? '#22fb' : '#22f6'
+                  break
+                  case 1: ctx.strokeStyle = shapeRotationSel[1] ? '#f22b' : '#f226'
+                  break
+                  case 2: ctx.strokeStyle = shapeRotationSel[2] ? '#2f8b' : '#2f86'
+                  break
+                }
+                ctx.stroke()
+              }
+              ctx.lineJoin = ctx.lineCap = 'butt'
+              if(clickReady && shapeRotationSel.filter(v=>v).length &&
+                 renderer.mouseButton == 1){
+                clickReady = false
+                shapeRotationInProgress = true
+                omx = mx
+                omy = my
+              }
+              if(shapeRotationInProgress){
+                var p1 = Math.atan2(mx-cx, my-cy)
+                var p2 = Math.atan2(omx-cx, omy-cy)
+                if(Math.abs(p1-p2) > Math.PI){
+                  p1 += p1 < p2 ? Math.PI*2 : -Math.PI*2
+                }
+                
+                shapes.filter(v=>v.selected).map(shape => {
+                  //shape[shapeRotationAxis] -= p1-p2
+                  var cx = 0
+                  var cy = 0
+                  var cz = 0
+                  var ct = 0
+                  switch(shapeRotationAxis){
+                    case 'roll':
+                      for(var i = 0; i < shape.vertices.length; i += 3){
+                        x = shape.vertices[i+0] + shape.x
+                        y = shape.vertices[i+1] + shape.y
+                        z = shape.vertices[i+2] + shape.z
+                        p = Math.atan2(x - ax_, y - ay_) - (p1-p2)
+                        d = Math.hypot(x - ax_, y - ay_)
+                        x = S(p) * d + ax_
+                        y = C(p) * d + ay_
+                        cx += shape.vertices[i+0] = x - shape.x
+                        cy += shape.vertices[i+1] = y - shape.y
+                        cz += shape.vertices[i+2] = z - shape.z
+                        ct++
+
+                        x = shape.normalVecs[i+0]
+                        y = shape.normalVecs[i+1]
+                        z = shape.normalVecs[i+2]
+                        d = Math.hypot(x, y)
+                        x = S(p) * d
+                        y = C(p) * d
+                        shape.normalVecs[i+0] = x
+                        shape.normalVecs[i+1] = y
+                        shape.normalVecs[i+2] = z
+
+                        for(var m = 2; m--;){
+                          x = shape.normals[i*2+0+m*3] + shape.x
+                          y = shape.normals[i*2+1+m*3] + shape.y
+                          z = shape.normals[i*2+2+m*3] + shape.z
+                          p = Math.atan2(x - ax_, y - ay_) - (p1-p2)
+                          d = Math.hypot(x - ax_, y - ay_)
+                          x = S(p) * d + ax_
+                          y = C(p) * d + ay_
+                          shape.normals[i*2+0+m*3] = x - shape.x
+                          shape.normals[i*2+1+m*3] = y - shape.y
+                          shape.normals[i*2+2+m*3] = z - shape.z
+                        }
+                      }
+                    break
+                    case 'pitch':
+                      for(var i = 0; i < shape.vertices.length; i += 3){
+                        x = shape.vertices[i+0] + shape.x
+                        y = shape.vertices[i+1] + shape.y
+                        z = shape.vertices[i+2] + shape.z
+                        p = Math.atan2(y - ay_, z - az_) - (p1-p2)
+                        d = Math.hypot(y - ay_, z - az_)
+                        y = S(p) * d + ay_
+                        z = C(p) * d + az_
+                        cx += shape.vertices[i+0] = x - shape.x
+                        cy += shape.vertices[i+1] = y - shape.y
+                        cz += shape.vertices[i+2] = z - shape.z
+                        ct++
+
+                        x = shape.normalVecs[i+0]
+                        y = shape.normalVecs[i+1]
+                        z = shape.normalVecs[i+2]
+                        d = Math.hypot(y, z)
+                        y = S(p) * d
+                        z = C(p) * d
+                        shape.normalVecs[i+0] = x
+                        shape.normalVecs[i+1] = y
+                        shape.normalVecs[i+2] = z
+
+                        for(var m = 2; m--;){
+                          x = shape.normals[i*2+0+m*3] + shape.x
+                          y = shape.normals[i*2+1+m*3] + shape.y
+                          z = shape.normals[i*2+2+m*3] + shape.z
+                          p = Math.atan2(y - ay_, z - az_) - (p1-p2)
+                          d = Math.hypot(y - ay_, z - az_)
+                          y = S(p) * d + ay_
+                          z = C(p) * d + az_
+                          shape.normals[i*2+0+m*3] = x - shape.x
+                          shape.normals[i*2+1+m*3] = y - shape.y
+                          shape.normals[i*2+2+m*3] = z - shape.z
+                        }
+                      }
+                    break
+                    case 'yaw':
+                      for(var i = 0; i < shape.vertices.length; i += 3){
+                        x = shape.vertices[i+0] + shape.x
+                        y = shape.vertices[i+1] + shape.y
+                        z = shape.vertices[i+2] + shape.z
+                        p = Math.atan2(x - ax_, z - az_) - (p1-p2)
+                        d = Math.hypot(x - ax_, z - az_)
+                        x = S(p) * d + ax_
+                        z = C(p) * d + az_
+                        cx += shape.vertices[i+0] = x - shape.x
+                        cy += shape.vertices[i+1] = y - shape.y
+                        cz += shape.vertices[i+2] = z - shape.z
+                        ct++
+
+                        x = shape.normalVecs[i+0]
+                        y = shape.normalVecs[i+1]
+                        z = shape.normalVecs[i+2]
+                        d = Math.hypot(x, z)
+                        x = S(p) * d
+                        z = C(p) * d
+                        shape.normalVecs[i+0] = x
+                        shape.normalVecs[i+1] = y
+                        shape.normalVecs[i+2] = z
+
+
+                        for(var m = 2; m--;){
+                          x = shape.normals[i*2+0+m*3] + shape.x
+                          y = shape.normals[i*2+1+m*3] + shape.y
+                          z = shape.normals[i*2+2+m*3] + shape.z
+                          p = Math.atan2(x - ax_, z - az_) - (p1-p2)
+                          d = Math.hypot(x - ax_, z - az_)
+                          x = S(p) * d + ax_
+                          z = C(p) * d + az_
+                          shape.normals[i*2+0+m*3] = x - shape.x
+                          shape.normals[i*2+1+m*3] = y - shape.y
+                          shape.normals[i*2+2+m*3] = z - shape.z
+                        }
+                      }
+                    break
+                  }
+                  shape.centerOfMass.x = cx /= ct
+                  shape.centerOfMass.y = cy /= ct
+                  shape.centerOfMass.z = cz /= ct
+                  
+                })
+                omx = mx 
+                omy = my
+              }
+            }
           break
           default:
           break
