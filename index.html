@@ -214,8 +214,8 @@ var displayProperties = {
 }
 
 import * as Coordinates from
-"https://cantelope42.github.io/temppp/coordinates.js?5"
-//"https://srmcgann.github.io/Coordinates/coordinates.js"
+"https://srmcgann.github.io/Coordinates/coordinates.js"
+//"https://cantelope42.github.io/temppp/coordinates.js?5"
 
 var rendererOptions = {
   ambientLight: .5, margin: 0, clearColor: 0x404040,
@@ -2785,9 +2785,9 @@ const LoadSceneShape = async (url, shapeType, map='', replace=true,
     map,
     sphereize,
     subs,
-    x: (Rn() - .5) * 8,
+    x: (Rn() - .5) * 0,
     y: 0,
-    z: (Rn() - .5) * 8,
+    z: (Rn() - .5) * 0,
     name: 'scene shape',
     //showNormals: true,
     flipNormals,
@@ -3375,6 +3375,7 @@ window.Draw = () => {
         z = C(p) * d
         var flip =  z < 0 ? 1 : -1
         */
+        var flip = 1
         
         ctx.lineJoin = ctx.lineCap = 'butt'
         if(clickReady && shapeRotationSel.filter(v=>v).length &&
