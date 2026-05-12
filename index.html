@@ -297,6 +297,7 @@ var shapeRotationInProgress = false
 var curSel = []
 var shapeRotationSel = [0,0,0]
 var shapeRotationAxis = ''
+var camPosX, camPosY, camPosZ
 
 var shaderOptions = [
   {lighting: {type: 'ambientLight', value: 1}},
@@ -321,7 +322,7 @@ var shaderOptions = [
   } },
   { uniform: {
     type: 'refraction2',
-    angleOfRefraction: .2,
+    angleOfRefraction: .4,
     enabled: true,
     map: refTexture,
     value: .8
@@ -1248,10 +1249,14 @@ window.addEventListener('mouseup', e => {
   gyroDecInProgress = false
   gyroIncInProgress = false
   if(shapeRotationInProgress){
-    shapes.filter(v=>v.name=='scene shape').map( shape => {
-      Coordinates.ApplyRotation(shape)
-    })
-    shapeRotationInProgress = false
+    document.body.style.cursor = 'wait'
+    setTimeout(() => {
+      shapes.filter(v=>v.name=='scene shape').map( shape => {
+        Coordinates.ApplyRotation(shape)
+      })
+      shapeRotationInProgress = false
+      //document.body.style.cursor = 'wait'
+    }, 0)
   }
 
   switch(curTool){
@@ -2391,7 +2396,9 @@ const DrawMainTools = () => {
     }else{
       if(toolshover) document.body.style.cursor = 'default'
       if(selecthover || movehover || rotatehover || scalehover || multihover || inchover || dechover || toolsHandleHover){
-        document.body.style.cursor = 'pointer'
+        if(!shapeRotationInProgress){
+          document.body.style.cursor = 'pointer'
+        }
       }
     }
   }
@@ -2756,7 +2763,7 @@ const LoadSceneShape = async (url, shapeType, map='', replace=true,
     } },
     { uniform: {
       type: 'refraction2',
-      angleOfRefraction: .2,
+      angleOfRefraction: .4,
       map: newRefTexture,
       value: 1,
       involveCache: false,
@@ -2770,7 +2777,7 @@ const LoadSceneShape = async (url, shapeType, map='', replace=true,
       shapeType == 'octahedron' ||
       shapeType == 'dodecahedron' ||
       shapeType == 'icosahedron')){
-    flipNormals = true
+    if(shapeType == 'dodecahedron') flipNormals = true
     if(sphereize){
       averageNormals = true
     }
@@ -2785,9 +2792,9 @@ const LoadSceneShape = async (url, shapeType, map='', replace=true,
     map,
     sphereize,
     subs,
-    x: (Rn() - .5) * 0,
+    x: (Rn() - .5) * 9,
     y: 0,
-    z: (Rn() - .5) * 0,
+    z: (Rn() - .5) * 9,
     name: 'scene shape',
     //showNormals: true,
     flipNormals,
@@ -2911,7 +2918,9 @@ window.Draw = () => {
       document.body.style.cursor = 'url(https://srmcgann.github.io/coordinates_workshop/assets/moveCursor.png) 20 20, auto'
       break
     case 'rotate':
-      document.body.style.cursor = 'url(https://srmcgann.github.io/coordinates_workshop/assets/rotateCursor.png) 20 20, auto'
+      if(!shapeRotationInProgress){
+        document.body.style.cursor = 'url(https://srmcgann.github.io/coordinates_workshop/assets/rotateCursor.png) 20 20, auto'
+      }
       break
     case 'scale':
       break
@@ -3057,7 +3066,8 @@ window.Draw = () => {
               }
               break
             case 'move': case 'rotate':
-              if(shape.selected){
+              if(shape.selected && !shapeRotationInProgress &&
+                 !moveInProgress){
                 ctx.fillStyle = '#0008'
                 ctx.fillRect(ar[0]-s/4, ar[1]-s/4,s/2,s/2)
                 ctx.fillStyle = '#ff08'
@@ -3087,13 +3097,13 @@ window.Draw = () => {
         renderer.Draw(shape)
         break
       case 'world grid':
+        var p1 = -renderer.yaw
+        var p2 = -renderer.pitch + Math.PI/2
+        camPosX = S(p1) * S(p2) * targD + renderer.offsetX
+        camPosY = C(p2) * targD + renderer.offsetY
+        camPosZ = C(p1) * S(p2) * targD + renderer.offsetZ
         if(showGrid){
           if(scrollGrid){
-            var p1 = -renderer.yaw
-            var p2 = -renderer.pitch + Math.PI/2
-            var camPosX = S(p1) * S(p2) * targD + renderer.offsetX
-            var camPosY = C(p2) * targD + renderer.offsetY
-            var camPosZ = C(p1) * S(p2) * targD + renderer.offsetZ
             shape.shapeData.map((subShape, sIdx) => {
               switch(axisAligned){
                 case 'X': case '-X':
@@ -3270,6 +3280,7 @@ window.Draw = () => {
       var ls = 100
       var cx = ar[0]
       var cy = ar[1]
+      /*
       ctx.beginPath()
       for(var i = 0; i < sd; i++){
         a = [S(p=Math.PI*2/sd*i), C(p), 0]
@@ -3281,12 +3292,14 @@ window.Draw = () => {
       ctx.closePath()
       ctx.strokeStyle = '#fff8'
       ctx.stroke()
+      */
 
       if(!shapeRotationInProgress) {
         shapeRotationSel = [0,0,0]
         shapeRotationAxis = ''
       }
       for(var m=3; m--;){
+        var flip = 1
         b = []
         e = []
         for(var i = 0; i < sd; i++){
@@ -3303,7 +3316,9 @@ window.Draw = () => {
           y = S(p) * d
           z = C(p) * d
           if(z<.01){
-            e.push([x, y, z])
+            e[0] += x
+            e[1] += y
+            e[2] += z
             var ax = 0
             var ay = 0
             z+=200
@@ -3320,7 +3335,9 @@ window.Draw = () => {
             d = Math.hypot(y, z)
             y = S(p) * d
             z = C(p) * d
-            e.push([x, y, z])
+            e[0] += x
+            e[1] += y
+            e[2] += z
             z+=200
             b.push([cx+x/z*ls*1.5*100, cy+y/z*ls*1.5*100])
             ax+=cx+x/z*ls*1.5*100, ay+=cy+y/z*ls*1.5*100
@@ -3358,25 +3375,7 @@ window.Draw = () => {
           }
           ctx.stroke()
         }
-        
-        /*var n = Coordinates.Normal([[ax_,ay_,az_],
-                                    [e[0][0],e[0][1],e[0][2]],
-                                    [e[4][0],e[4][1],e[4][2]]])
-        x = (n[3] - n[0])
-        y = (n[4] - n[1])
-        z = (n[5] - n[2])
-        p = Math.atan2(x, z) + renderer.yaw
-        d = Math.hypot(x, z)
-        x = S(p) * d
-        z = C(p) * d
-        p = Math.atan2(y, z) + renderer.pitch
-        d = Math.hypot(y, z)
-        y = S(p) * d
-        z = C(p) * d
-        var flip =  z < 0 ? 1 : -1
-        */
-        var flip = 1
-        
+
         ctx.lineJoin = ctx.lineCap = 'butt'
         if(clickReady && shapeRotationSel.filter(v=>v).length &&
            renderer.mouseButton == 1){
