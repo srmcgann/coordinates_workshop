@@ -214,8 +214,8 @@ var displayProperties = {
 }
 
 import * as Coordinates from
-"https://cantelope42.github.io/temppp/coordinates.js?5"
 //"https://srmcgann.github.io/Coordinates/coordinates.min.js"
+"https://cantelope42.github.io/temppp/coordinates.js?6"
 
 var rendererOptions = {
   ambientLight: .5, margin: 0, clearColor: 0x404040,
@@ -303,7 +303,7 @@ var shapeMoveAxis = ''
 var shapeScaleSel = [0,0,0]
 var shapeScaleAxis = ''
 var camPosX, camPosY, camPosZ
-
+var angleOfRefraction = -1
 var shaderOptions = [
   {lighting: {type: 'ambientLight', value: 1}},
   { uniform: {
@@ -327,7 +327,7 @@ var shaderOptions = [
   } },
   { uniform: {
     type: 'refraction2',
-    angleOfRefraction: .4,
+    angleOfRefraction,
     enabled: true,
     map: refTexture,
     value: .8
@@ -848,171 +848,129 @@ var samples4 = [
   }
 ]
 
-/*
-      var samples5 =
-      [
-        {
-          url:  'https://srmcgann.github.io/objs/sea_turtle.obj',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/absurdTurtles',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/angel 7',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/cathedral',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/chainLoops',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/dining room',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/eggcrate',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/eggcrate 2',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/ignoreList',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/island',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/maze arena 1',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/new double funnel',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/new spiral platform',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/piano',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/portal',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/pyramid',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/satellite',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/shapeFromArray',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/shooter',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/simple gem',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/skatepark',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/spiral_platform2',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/spiral_platforms',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/surface to air gun',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/testEnvironment',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/testEnvironment2',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/testTerrain',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/thornus knot',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/torus tree thing',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/vase',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/violin',
-          map:  '',
-          name: '',
-        },
-        {
-          url:    'https://srmcgann.github.io/objs2/vortexBase',
-          map:  '',
-          name: '',
-        },
-      ]
-      */
+var samples5 =
+[
+  {
+    url: 'https://srmcgann.github.io/objs2/angel 7/angel 7.obj',
+    map:  'https://srmcgann.github.io/objs2/angel 7/angel 7.png',
+    name: '',
+  },
+  {
+    url: 'https://srmcgann.github.io/objs2/chainLoops/chainLoops.obj',
+    map:  'https://srmcgann.github.io/objs2/chainLoops/texture.png',
+    name: '',
+  },
+  {
+    url: 'https://srmcgann.github.io/objs2/eggcrate/eggcrate.obj',
+    map:  'https://srmcgann.github.io/objs2/eggcrate/eggcrate.png',
+    name: '',
+  },
+  {
+    url: 'https://srmcgann.github.io/objs2/eggcrate 2/eggcrate 2.obj',
+    map:  'https://srmcgann.github.io/objs2/eggcrate 2/eggcrate 2.png',
+    name: '',
+  },
+  {
+    url: 'https://srmcgann.github.io/objs2/island/land.obj',
+    map:  'https://srmcgann.github.io/objs2/island/texture.png',
+    name: '',
+  },
+  {
+    url: 'https://srmcgann.github.io/objs2/island/ocean and trees.obj',
+    map:  'https://srmcgann.github.io/objs2/island/texture.png',
+    name: '',
+  },
+  {
+    url: 'https://srmcgann.github.io/objs2/maze arena 1/maze arena 1.obj',
+    map:  'https://srmcgann.github.io/objs2/maze arena 1/texture.jpg',
+    name: '',
+  },
+  {
+    url: 'https://srmcgann.github.io/objs2/new double funnel/double funnel.obj',
+    map:  'https://srmcgann.github.io/objs2/new double funnel/texture.png',
+    name: '',
+  },
+  {
+    url: 'https://srmcgann.github.io/objs2/new spiral platform/newSpiral.obj',
+    map:  'https://srmcgann.github.io/objs2/new spiral platform/texture.png',
+    name: '',
+  },
+  {
+    url: 'https://srmcgann.github.io/objs2/piano/piano.obj',
+    map:  'https://srmcgann.github.io/objs2/piano/texture.png',
+    name: '',
+  },
+  {
+    url: 'https://srmcgann.github.io/objs2/portal/portal.obj',
+    map:  'https://srmcgann.github.io/objs2/portal/texture.png',
+    name: '',
+  },
+  {
+    url: 'https://srmcgann.github.io/objs2/pyramid/pyramid.obj',
+    map:  'https://srmcgann.github.io/objs2/pyramid/texture.png',
+    name: '',
+  },
+  {
+    url: 'https://srmcgann.github.io/objs2/simple gem/gem.obj',
+    map:  'https://srmcgann.github.io/objs2/simple gem/texture.png',
+    name: '',
+  },
+  {
+    url: 'https://srmcgann.github.io/objs2/skatepark/skatepark_obj.zip',
+    map:  'https://srmcgann.github.io/objs2/skatepark/texture.png',
+    name: '',
+  },
+  {
+    url: 'https://srmcgann.github.io/objs2/spiral_platform2/spiral_platform2.obj',
+    map:  'https://srmcgann.github.io/objs2/spiral_platform2/texture.png',
+    name: '',
+  },
+  {
+    url: 'https://srmcgann.github.io/objs2/spiral_platforms/floor.obj',
+    map:  'https://srmcgann.github.io/objs2/spiral_platforms/texture.png',
+    name: '',
+  },
+  {
+    url: 'https://srmcgann.github.io/objs2/testEnvironment/floor_with_trees.obj',
+    map:  'https://srmcgann.github.io/objs2/testEnvironment/texture.png',
+    name: '',
+  },
+  {
+    url: 'https://srmcgann.github.io/objs2/testEnvironment2/floor.obj',
+    map:  'https://srmcgann.github.io/objs2/testEnvironment2/texture.png',
+    name: '',
+  },
+  {
+    url: 'https://srmcgann.github.io/objs2/testTerrain/testTerrain_obj.zip',
+    map:  'https://srmcgann.github.io/objs2/testTerrain/testTerrain1.png',
+    name: '',
+  },
+  {
+    url: 'https://srmcgann.github.io/objs2/thornus knot/thornus knot.obj',
+    map:  'https://srmcgann.github.io/objs2/thornus knot/thornus knot.png',
+    name: '',
+  },
+  {
+    url: 'https://srmcgann.github.io/objs2/torus tree thing/torus tree thing.obj',
+    map:  'https://srmcgann.github.io/objs2/torus tree thing/treeTexture.png',
+    name: '',
+  },
+  {
+    url: 'https://srmcgann.github.io/objs2/vase/vase.obj',
+    map:  'https://srmcgann.github.io/objs2/vase/texture.png',
+    name: '',
+  },
+  {
+    url: 'https://srmcgann.github.io/objs2/violin/violin_lowpoly.obj',
+    map:  'https://srmcgann.github.io/objs2/violin/texture.png',
+    name: '',
+  },
+  {
+    url: 'https://srmcgann.github.io/objs2/vortexBase/vortexBase.obj',
+    map:  'https://srmcgann.github.io/objs2/vortexBase/vortexBase.png',
+    name: '',
+  },
+]
 
 samples.map(v => {
   var l = v.url.split('/')
@@ -1038,20 +996,17 @@ samples4.map(v => {
   v.name = l[l.length-2].replaceAll('_', ' ')
 })
 
-/*
-      samples5.map(v => {
-        console.log(v)
-        var l = v.url.split('/')
-        l = l[l.length-1].split('.')
-        v.name = l[l.length-2].replaceAll('_', ' ')
-      })
-      */
+samples5.map(v => {
+  var l = v.url.split('/')
+  l = l[l.length-1].split('.')
+  v.name = l[l.length-2].replaceAll('_', ' ')
+})
 
 samples.sort((a,b) => b.name.length - a.name.length)
 samples2.sort((a,b) => b.name.length - a.name.length)
 samples3.sort((a,b) => b.name.length - a.name.length)
 samples4.sort((a,b) => b.name.length - a.name.length)
-//samples5.sort((a,b) => b.name.length - a.name.length)
+samples5.sort((a,b) => b.name.length - a.name.length)
 
 
 var keys = Array(256).fill(false)
@@ -1590,19 +1545,17 @@ const InitMenus = () => {
                                                   '${sample.url}', -1)`)
     }
   })
-  /*
-          el2 = PushMenuItem(el, 'samples 5')
-            samples4.map(sample => {
-              if(sample.map){
-                el3 = PushMenuItem(el2, sample.name, `Import('obj', false,
+  el2 = PushMenuItem(el, 'samples 5')
+  samples5.map(sample => {
+    if(sample.map){
+      el3 = PushMenuItem(el2, sample.name, `Import('obj', false,
                                                   '${sample.url}',
                                                   '${sample.map}')`)
-              }else{
-                el3 = PushMenuItem(el2, sample.name, `Import('obj', false,
+    }else{
+      el3 = PushMenuItem(el2, sample.name, `Import('obj', false,
                                                   '${sample.url}', -1)`)
-              }
-            })
-            */
+    }
+  })
   el2 = PushMenuItem(el, 'shapes')
   for(var n = 0; n < 3; n++){
     el3 = PushMenuItem(el2, `subdivisions ${n}`)
@@ -2785,7 +2738,7 @@ const LoadSceneShape = async (url, shapeType, map='', replace=true,
     } },
     { uniform: {
       type: 'refraction2',
-      angleOfRefraction: .4,
+      angleOfRefraction,
       map: newRefTexture,
       value: 1,
       involveCache: false,
@@ -2799,7 +2752,7 @@ const LoadSceneShape = async (url, shapeType, map='', replace=true,
       shapeType == 'octahedron' ||
       shapeType == 'dodecahedron' ||
       shapeType == 'icosahedron')){
-    if(shapeType == 'dodecahedron') flipNormals = true
+    if(shapeType == 'icosahedron') flipNormals = true
     if(sphereize){
       averageNormals = true
     }
@@ -2822,11 +2775,11 @@ const LoadSceneShape = async (url, shapeType, map='', replace=true,
     scaleX: -.5,
     scaleY: -.5,
     scaleZ: -.5,
-    flipNormals,
+    flipNormals : true,
     color: 0xffffff,
     colorMix: map?0:.25,
     averageNormals,
-    involveCache: false,
+    //involveCache: false,
     //rebindTextures: !!newRefTexture,
   }
   if(replace) shapes = shapes.filter(shape => shape.name != 'scene shape')
@@ -2847,6 +2800,13 @@ const LoadSceneShape = async (url, shapeType, map='', replace=true,
     //geometry.rebindTextures = true
     await newShader.ConnectGeometry(geometry)
     SetSkybox(refTexture)
+    if(geometry.shapeType == 'cylinder'){
+      console.log('hmm')
+      geometry.averageNormals = true
+      setTimeout(()=>{
+        //Coordinates.RecomputeNormalsOutside(geometry, false)
+      }, 0)
+    }
     //SetCenterOfMass(geometry)
     
   })
@@ -2916,7 +2876,7 @@ var clickReady = true
 
 await ClearAll()
 await SetSkybox(greyPixel)
-await LoadSceneShape ('', 'dodecahedron', '', false, 1, 0)
+await LoadSceneShape ('', 'cylinder', '', false, 1, 0)
 setTimeout(() => {
   //axisAligned = 'Z'
 }, 0)
