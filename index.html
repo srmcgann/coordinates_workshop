@@ -214,8 +214,8 @@ var displayProperties = {
 }
 
 import * as Coordinates from
-//"https://srmcgann.github.io/Coordinates/coordinates.min.js"
-"https://cantelope42.github.io/temppp/coordinates.js?6"
+"https://srmcgann.github.io/Coordinates/coordinates.min.js"
+//"https://cantelope42.github.io/temppp/coordinates.js?6"
 
 var rendererOptions = {
   ambientLight: .5, margin: 0, clearColor: 0x404040,
@@ -304,6 +304,7 @@ var shapeScaleSel = [0,0,0]
 var shapeScaleAxis = ''
 var camPosX, camPosY, camPosZ
 var angleOfRefraction = -1
+var flipX, flipY, flipZ
 var shaderOptions = [
   {lighting: {type: 'ambientLight', value: 1}},
   { uniform: {
@@ -2772,10 +2773,10 @@ const LoadSceneShape = async (url, shapeType, map='', replace=true,
     z: (Rn() - .5) * 6,
     name: 'scene shape',
     //showNormals: true,
-    scaleX: -.5,
-    scaleY: -.5,
-    scaleZ: -.5,
-    flipNormals : true,
+    scaleX: .5,
+    scaleY: .5,
+    scaleZ: .5,
+    //flipNormals : true,
     color: 0xffffff,
     colorMix: map?0:.25,
     averageNormals,
@@ -3381,19 +3382,22 @@ window.Draw = () => {
           shapeMoveInProgress = true
           omx = mx
           omy = my
+          flipZ = (camPosZ > az_ ? -1 : 1) * (renderer.pitch <0 ? -1: 1)
+          flipX = (camPosX < ax_ ? -1 : 1) * (renderer.pitch <=0 ? -1: 1)
+          flipY = (camPosY <= ay_ ? -1 : 1) * (renderer.pitch <=0 ? -1: 1)
         }
         if(shapeMoveInProgress){
           document.body.style.cursor = 'none'
           shapes.filter(v=>v.selected).map(shape => {
             switch(shapeMoveAxis){
               case 'x':
-                shape['x'] += (mx-omx) / 200 * (camPosZ < shape.z ? -1 : 1)
+                shape['x'] += (mx-omx) / 200 * flipZ
               break
               case 'y':
-                shape['z'] += (mx-omx) / 200 * (camPosX > shape.x ? -1 : 1)
+                shape['z'] += (mx-omx) / 200 * flipX
               break
               case 'z':
-                shape['y'] -= (my-omy) / 200 * (camPosY > shape.y ? -1 : 1)
+                shape['y'] -= (my-omy) / 200 * flipY
               break
             }
           })
@@ -3408,6 +3412,9 @@ window.Draw = () => {
       ax = res.ax
       ay = res.ay
       az = res.az
+      var ax2 = ax
+      var ay2 = ay
+      var az2 = az
       ax_ = res.ax_
       ay_ = res.ay_
       az_ = res.az_
@@ -3517,7 +3524,10 @@ window.Draw = () => {
           shapeRotationInProgress = true
           omx = mx
           omy = my
-        }
+          flipZ = (camPosZ <= az2 ? -1 : 1)
+          flipX = (camPosX <= ax2 ? -1 : 1)
+          flipY = (camPosY >= ay2 ? -1 : 1)
+         }
         if(shapeRotationInProgress){
           var p1 = Math.atan2(mx-cx, my-cy)
           var p2 = Math.atan2(omx-cx, omy-cy)
@@ -3533,7 +3543,7 @@ window.Draw = () => {
           shapes.filter(v=>v.selected).map(shape => {
             switch(shapeRotationAxis){
               case 'roll':
-                var theta2 =  theta * (camPosZ < az_ ? -1 : 1)
+                var theta2 =  theta * flipZ
                 shape[shapeRotationAxis] -= theta2
                 x = shape.x - ax_
                 y = shape.y - ay_
@@ -3544,7 +3554,7 @@ window.Draw = () => {
                 y = C(p) * d
               break
               case 'pitch':
-                var theta2 =  theta * (camPosX < ax_ ? -1 : 1)
+                var theta2 =  theta * flipX
                 shape[shapeRotationAxis] -= theta2
                 x = shape.x - ax_
                 y = shape.y - ay_
@@ -3555,7 +3565,7 @@ window.Draw = () => {
                 z = C(p) * d
               break
               case 'yaw':
-                var theta2 =  theta * (camPosY < ay_ ? -1 : 1)
+                var theta2 =  theta * flipY
                 shape[shapeRotationAxis] -= theta2
                 x = shape.x - ax_
                 y = shape.y - ay_
