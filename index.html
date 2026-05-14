@@ -1472,7 +1472,7 @@ const InitMenus = () => {
 
 
   var el = FetchMenuItemByName('Help', menus)
-  PushMenuItem(el, `About`, `alert('version ${version}')`)
+  PushMenuItem(el, `About`, `alert('coordinates workshop\\nversion ${version}')`)
 
 
 
@@ -2808,9 +2808,9 @@ const LoadSceneShape = async (url, shapeType, map='', replace=true,
     map,
     sphereize,
     subs,
-    x: (Rn() - .5) * 4,
+    x: (Rn() - .5) * 0,
     y: 0,
-    z: (Rn() - .5) * 4,
+    z: (Rn() - .5) * 0,
     name: 'scene shape',
     //showNormals: true,
     scaleX: .5,
@@ -3244,6 +3244,35 @@ const ScaleShape = (ar, asMulti = false) => {
   x1 = 0
   y1 = 0
   z1 = 0
+
+
+  ctx.beginPath()
+  ls = 125
+  var hov = false
+  for(var i = 0; i < 64; i++){
+    a = [S(p=Math.PI*2/64*i), C(p), 0]
+    x = cx + a[0] * ls
+    y = cy + a[1] * ls
+    ctx.lineTo(x, y)
+    if(Math.hypot(x-mx, y-my) < 8) hov = true
+  }
+  if(!shapeScaleInProgress &&
+     clickReady && hov &&
+     renderer.mouseButton == 1){
+    clickReady = false
+    shapeScaleInProgress = true
+    shapeScaleAxis = 'xyz'
+    omx = mx
+    omy = my
+  }
+  ctx.closePath()
+  ctx.strokeStyle = '#fff4'
+  ctx.lineWidth = 6 * (hov ? 2 : 1)
+  ctx.stroke()
+  ctx.lineWidth /= 4
+  ctx.strokeStyle = '#fff8'
+  ctx.stroke()
+
   for(var m=3; m--;){
     b = []
     for(var i = 0; i < sd; i++){
@@ -3330,7 +3359,7 @@ const ScaleShape = (ar, asMulti = false) => {
         var x2 = x1 + (ar_2[0]-x1)/d * d2
         var y2 = y1 + (ar_2[1]-y1)/d * d2
 
-      if(!i){
+      if(!i && shapeScaleAxis != 'xyz'){
         ctx.fillStyle = ctx.strokeStyle
         switch(m){
           case 0: ctx.fillStyle = shapeScaleSel[0] ? '#22fb' : '#22f6'
@@ -3342,6 +3371,9 @@ const ScaleShape = (ar, asMulti = false) => {
         }
         ctx.fillRect(x2-10, y2-10, 20, 20)
       }
+      
+      
+      
       var x3 = x1 + (x2-x1) / sd * i
       var y3 = y1 + (y2-y1) / sd * i
       var ax = 0, ay = 0
@@ -3368,7 +3400,7 @@ const ScaleShape = (ar, asMulti = false) => {
       ay/=2
       b.push([x3, y3])
       ctx.lineWidth = shapeScaleSel[m] ? 8 :  4
-      
+
       if(!shapeScaleInProgress){
         if(!shapeScaleSel.filter(v=>v).length &&
            Math.hypot(mx-ax, my-ay) < 10) {
@@ -3385,21 +3417,23 @@ const ScaleShape = (ar, asMulti = false) => {
       }
     }
 
-    ctx.lineJoin = ctx.lineCap = 'round'
-    for(var i = 0; i < b.length; i+=2){
-      ctx.beginPath()
-      ctx.lineTo(b[i][0], b[i][1])
-      ctx.lineTo(b[i+1][0], b[i+1][1])
-      ctx.lineWidth = shapeScaleSel[m] ? 8 :  4
-      switch(m){
-        case 0: ctx.strokeStyle = shapeScaleSel[0] ? '#22fb' : '#22f6'
-        break
-        case 1: ctx.strokeStyle = shapeScaleSel[1] ? '#f22b' : '#f226'
-        break
-        case 2: ctx.strokeStyle = shapeScaleSel[2] ? '#2f8b' : '#2f86'
-        break
+    if(shapeScaleAxis != 'xyz'){
+      ctx.lineJoin = ctx.lineCap = 'round'
+      for(var i = 0; i < b.length; i+=2){
+        ctx.beginPath()
+        ctx.lineTo(b[i][0], b[i][1])
+        ctx.lineTo(b[i+1][0], b[i+1][1])
+        ctx.lineWidth = shapeScaleSel[m] ? 8 :  4
+        switch(m){
+          case 0: ctx.strokeStyle = shapeScaleSel[0] ? '#22fb' : '#22f6'
+          break
+          case 1: ctx.strokeStyle = shapeScaleSel[1] ? '#f22b' : '#f226'
+          break
+          case 2: ctx.strokeStyle = shapeScaleSel[2] ? '#2f8b' : '#2f86'
+          break
+        }
+        ctx.stroke()
       }
-      ctx.stroke()
     }
 
     ctx.lineJoin = ctx.lineCap = 'butt'
@@ -3414,22 +3448,39 @@ const ScaleShape = (ar, asMulti = false) => {
       flipY = (camPosY <= ay_ ? -1 : 1) * (renderer.pitch <=0 ? -1: 1)
     }
     if(shapeScaleInProgress){
-      document.body.style.cursor = 'none'
       shapes.filter(v=>v.selected).map(shape => {
         switch(shapeScaleAxis){
           case 'x':
+            document.body.style.cursor = 'none'
             shape.scaleX += (mx-omx) / 200 * flipZ
+            omx = mx
+            omy = my
           break
           case 'y':
+            document.body.style.cursor = 'none'
             shape.scaleZ += (mx-omx) / 200 * flipX
+            omx = mx
+            omy = my
           break
           case 'z':
-            shape.scaleY -= (my-omy) / 200 * flipY
+            document.body.style.cursor = 'none'
+            shape.scaleY += (omy-my) / 200 * flipY
+            omx = mx
+            omy = my
+          break
+          case 'xyz':
+            document.body.style.cursor = 'crosshair'
+            d = 
+            d = 1 - (Math.hypot(cx-omx, cy-omy)-
+                Math.hypot(cx-mx, cy-my))/200
+            shape.scaleX *= d
+            shape.scaleY *= d
+            shape.scaleZ *= d
+            omx = mx
+            omy = my
           break
         }
       })
-      omx = mx 
-      omy = my          
     }
   }
 }
@@ -3917,8 +3968,10 @@ window.Draw = () => {
       SelectShape(ar)
       break
     case 'multi':
-      MoveShape(ar, true)
-      RotateShape(ar, true)
+      if(shapeScaleAxis != 'xyz'){
+        MoveShape(ar, true)
+        RotateShape(ar, true)
+      }
       ScaleShape(ar, true)
       SelectShape(ar)
       break
