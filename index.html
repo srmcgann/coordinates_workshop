@@ -6,15 +6,14 @@
   ✔ gyro cluster moveable w/handle
   ✔ sync grid-size to shape units
   ✔ undo function
-  * apply transformations / rotations / scale
+  ✔ apply transformations / rotations / scale
   * tooltips
-  * cursor which serves as camera orbit point
-  * toolbar
-    * move
-    * scale
-    * rotate
-    * select
-    * rotate
+  ✔ toolbar
+    ✔ move
+    ✔ scale
+    ✔ select
+    ✔ rotate
+    * multi tool
   * menu
     * mode switching (object/edit)
     * File
@@ -215,7 +214,7 @@ var displayProperties = {
 
 import * as Coordinates from
 "https://srmcgann.github.io/Coordinates/coordinates.min.js"
-//"https://cantelope42.github.io/temppp/coordinates.js?6"
+//"https://cantelope42.github.io/tempppp/coordinates.js?2"
 
 var rendererOptions = {
   ambientLight: .5, margin: 0, clearColor: 0x404040,
@@ -294,16 +293,16 @@ var toolsDecInProgress = false
 var gyroIncInProgress = false
 var gyroDecInProgress = false
 var shapeRotationInProgress = false
-var shapeMoveInProgress = false
 var curSel = []
 var shapeRotationSel = [0,0,0]
 var shapeRotationAxis = ''
+var shapeMoveInProgress = false
 var shapeMoveSel = [0,0,0]
 var shapeMoveAxis = ''
 var shapeScaleSel = [0,0,0]
 var shapeScaleAxis = ''
 var camPosX, camPosY, camPosZ
-var angleOfRefraction = -1
+var angleOfRefraction = .5
 var flipX, flipY, flipZ
 var shaderOptions = [
   {lighting: {type: 'ambientLight', value: 1}},
@@ -312,8 +311,21 @@ var shaderOptions = [
     value: 0
   } }
 ]
+var shapeScaleInProgress = false
+var shapeScaleSel = [0,0,0]
+var shapeScaleAxis = ''
 var backgroundShader = await Coordinates.BasicShader(renderer, shaderOptions)
 
+
+const DrawRotatedImage = (image, x, y, width, height, angle) => { 
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.rotate(-angle)
+  ctx.drawImage(image, -width/2, -height/2, width, height)
+  ctx.restore()
+}
+
+  
 var shaderOptions = [
   {lighting: {type: 'ambientLight', value: .4}},
   { uniform: {
@@ -1209,24 +1221,26 @@ window.addEventListener('mouseup', e => {
   toolsIncInProgress = false
   gyroDecInProgress = false
   gyroIncInProgress = false
+  if(shapeScaleInProgress){
+    document.body.style.cursor = 'wait'
+    setTimeout(() => {
+      shapeScaleInProgress = false
+    }, 0)
+  }
   if(shapeMoveInProgress){
     document.body.style.cursor = 'wait'
     setTimeout(() => {
-      //shapes.filter(v=>v.name=='scene shape').map( shape => {
-      //  Coordinates.ApplyLocation(shape)
-      //})
       shapeMoveInProgress = false
-      //document.body.style.cursor = 'wait'
     }, 0)
   }
   if(shapeRotationInProgress){
     document.body.style.cursor = 'wait'
     setTimeout(() => {
       shapes.filter(v=>v.name=='scene shape').map( shape => {
+        Coordinates.ApplyScale(shape)
         Coordinates.ApplyRotation(shape)
       })
       shapeRotationInProgress = false
-      //document.body.style.cursor = 'wait'
     }, 0)
   }
 
@@ -1491,11 +1505,19 @@ const InitMenus = () => {
   //  el2 = PushMenuItem(el, 'sculpt')
 
 
+  
   el2 = PushMenuItem(root, 'apply')
   PushMenuItem(el2, 'location', `shapes.filter(v=>v.selected).map(v=>Coordinates.ApplyLocation(v))`)
   PushMenuItem(el2, 'scale', `shapes.filter(v=>v.selected).map(v=>Coordinates.ApplyScale(v))`)
   PushMenuItem(el2, 'rotation', `shapes.filter(v=>v.selected).map(v=>Coordinates.ApplyRotation(v))`)
 
+  PushMenuItem(el2, 'flip normals', `shapes.filter(v=>v.selected).map(v=>Coordinates.FlipNormals(v))`)
+
+
+  el2 = PushMenuItem(root, 'set origin')
+  PushMenuItem(el2, 'geometry to origin', `shapes.filter(v=>v.selected).map(v=>Coordinates.GeometryToOrigin(v))`)
+  PushMenuItem(el2, 'origin to geometry', `shapes.filter(v=>v.selected).map(v=>Coordinates.GeometryToOrigin(v))`)
+  PushMenuItem(el2, 'origin to 3D cursor', `shapes.filter(v=>v.selected).map(v=>Coordinates.GeometryToOrigin(v))`)
 
   var el4
   var el = FetchMenuItemByName('add', secondaryMenus)
@@ -1648,6 +1670,24 @@ var assets = [
   {
     name: 'multi tool png',
     url: 'https://srmcgann.github.io/coordinates_workshop/assets/multiTool.png',
+    loaded: false,
+    resource: new Image()
+  },
+  {
+    name: 'red arrowhead png',
+    url: 'https://srmcgann.github.io/coordinates_workshop/assets/red_arrowhead.png',
+    loaded: false,
+    resource: new Image()
+  },
+  {
+    name: 'green arrowhead png',
+    url: 'https://srmcgann.github.io/coordinates_workshop/assets/green_arrowhead.png',
+    loaded: false,
+    resource: new Image()
+  },
+  {
+    name: 'blue arrowhead png',
+    url: 'https://srmcgann.github.io/coordinates_workshop/assets/blue_arrowhead.png',
     loaded: false,
     resource: new Image()
   },
@@ -2753,7 +2793,7 @@ const LoadSceneShape = async (url, shapeType, map='', replace=true,
       shapeType == 'octahedron' ||
       shapeType == 'dodecahedron' ||
       shapeType == 'icosahedron')){
-    if(shapeType == 'icosahedron') flipNormals = true
+    flipNormals = true
     if(sphereize){
       averageNormals = true
     }
@@ -2768,9 +2808,9 @@ const LoadSceneShape = async (url, shapeType, map='', replace=true,
     map,
     sphereize,
     subs,
-    x: (Rn() - .5) * 6,
+    x: (Rn() - .5) * 0,
     y: 0,
-    z: (Rn() - .5) * 6,
+    z: (Rn() - .5) * 0,
     name: 'scene shape',
     //showNormals: true,
     scaleX: .5,
@@ -2802,7 +2842,6 @@ const LoadSceneShape = async (url, shapeType, map='', replace=true,
     await newShader.ConnectGeometry(geometry)
     SetSkybox(refTexture)
     if(geometry.shapeType == 'cylinder'){
-      console.log('hmm')
       geometry.averageNormals = true
       setTimeout(()=>{
         //Coordinates.RecomputeNormalsOutside(geometry, false)
@@ -2877,12 +2916,12 @@ var clickReady = true
 
 await ClearAll()
 await SetSkybox(greyPixel)
-await LoadSceneShape ('', 'cylinder', '', false, 1, 0)
+await LoadSceneShape ('', 'cube', '', false, 1, 0)
 setTimeout(() => {
   //axisAligned = 'Z'
 }, 0)
 
-const ComputeGroupCenter = () => {
+const ComputeGroupCenter = (draw=true) => {
   var ax = 0
   var ay = 0
   var az = 0
@@ -2921,7 +2960,7 @@ const ComputeGroupCenter = () => {
     offsetZ: 0,
     fov: renderer.fov,
   })
-  if(ar){
+  if(ar && draw){
     var s = 50
     ctx.strokeStyle = '#0008'
     ctx.lineWidth = 4
@@ -2936,6 +2975,605 @@ const ComputeGroupCenter = () => {
   return { ax, ay, az, ax_, ay_, az_, ar }
 }
 
+var ax, ay, az, ax_, ay_, az_
+
+const MoveShape = (ar, asMulti = false) => {
+ var res = ComputeGroupCenter(!asMulti)
+  ar = res.ar
+  ax = res.ax
+  ay = res.ay
+  az = res.az
+  ax_ = res.ax_
+  ay_ = res.ay_
+  az_ = res.az_
+  var sd = 16
+  var ls = 25
+  var cx = ar[0]
+  var cy = ar[1]
+  if(!shapeMoveInProgress) {
+    shapeMoveSel = [0,0,0]
+    shapeMoveAxis = ''
+  }
+  var x1, y1, z1, x2, y2, z2, arrowhead
+  x1 = 0
+  y1 = 0
+  z1 = 0
+  for(var m=3; m--;){
+    b = []
+    switch(m){
+      case 1:
+        var arrowhead = assets.filter(v => v.name == 'red arrowhead png')[0].resource
+      break
+      case 2:
+        var arrowhead = assets.filter(v => v.name == 'green arrowhead png')[0].resource
+      break
+      case 0:
+        var arrowhead = assets.filter(v => v.name == 'blue arrowhead png')[0].resource
+      break
+    }
+    
+    for(var i = 0; i < sd; i++){
+      switch(m){
+        case 0:
+          x = 0
+          y = -4
+          z = 0
+        break;
+        case 1:
+          x = 4
+          y = 0
+          z = 0
+        break;
+        case 2:
+          x = 0
+          y = 0
+          z = 4
+        break;
+      }
+      x2 = x/4
+      y2 = y/4
+      z2 = z/4
+      p = Math.atan2(x, z) + renderer.yaw
+      d = Math.hypot(x, z)
+      x = S(p) * d
+      z = C(p) * d
+      p = Math.atan2(y, z) + renderer.pitch
+      d = Math.hypot(y, z)
+      y = S(p) * d
+      z = C(p) * d
+      z+=8
+      
+      var x1 = cx
+      var y1 = cy
+      
+      var ls = .5
+      var ar_1 = Coordinates.GetShaderCoord(renderer.offsetX,
+                                            renderer.offsetY,
+                                            renderer.offsetZ, {
+        x: ax_*ls, y: ay_*ls, z: az_*ls, roll: 0, pitch: 0, yaw: 0,
+        }, {
+          x: 0,
+          y: 0,
+          z: renderer.z,
+          roll: 0,
+          pitch: targPitch,
+          yaw: targYaw,
+          cameraMode: '',
+          width: renderer.width,
+          height: renderer.height,
+          offsetX: 0,
+          offsetY: 0,
+          offsetZ: 0,
+          fov: renderer.fov,
+        })
+
+      var ar_2 = Coordinates.GetShaderCoord(renderer.offsetX,
+                                          renderer.offsetY,
+                                          renderer.offsetZ,
+                                          {
+        x: ax_+ x2, y: ay_-y2, z: az_+z2,
+        roll: 0, pitch: 0, yaw: 0,
+      }, {
+        x: 0,
+        y: 0,
+        z: renderer.z,
+        roll: 0,
+        pitch: targPitch,
+        yaw: targYaw,
+        cameraMode: '',
+        width: renderer.width,
+        height: renderer.height,
+        offsetX: 0,
+        offsetY: 0,
+        offsetZ: 0,
+        fov: renderer.fov,
+      })
+
+      d = Math.hypot(x1-ar_2[0], y1-ar_2[1])
+      var d2 = Math.hypot(x/z*200, y/z*200)
+      var x2 = x1 + (ar_2[0]-x1)/d * d2
+      var y2 = y1 + (ar_2[1]-y1)/d * d2
+
+      var x3 = x1 + (x2-x1) / sd * i
+      var y3 = y1 + (y2-y1) / sd * i
+      var ax = 0, ay = 0
+      if(!asMulti || i==sd-1) b.push([ax=x3, ay=y3])
+      ctx.lineTo(x3,y3)
+      x3 = x1 + (x2-x1) / sd * (i+1)
+      y3 = y1 + (y2-y1) / sd * (i+1)
+      ax+=x3, ay+=y3
+      ax/=2
+      ay/=2
+      if(!asMulti || i==sd-1) b.push([x3, y3])
+      ctx.lineWidth = shapeRotationSel[m] ? 8 :  4
+      var hl = 0
+      if(!shapeMoveInProgress){
+        if(!shapeMoveSel.filter(v=>v).length &&
+           Math.hypot(mx-ax, my-ay) < 10) {
+          shapeMoveSel[m] = 1
+          switch(m){
+            case 0:
+              shapeMoveAxis = 'z'
+              hl=true
+              break
+            case 1:
+              shapeMoveAxis = 'x'
+              hl=true
+              break
+            case 2:
+              shapeMoveAxis = 'y'
+              hl=true
+              break
+          }
+        }
+      }
+      if(i==sd-1){
+        p = Math.atan2(x2-x1, y2-y1) + Math.PI
+        DrawRotatedImage(arrowhead, x2, y2,
+                         hl?25:20, hl?25:20, p)
+      }
+    }
+
+    ctx.lineJoin = ctx.lineCap = 'round'
+    for(var i = 0; i < b.length; i+=2){
+      ctx.beginPath()
+      ctx.lineTo(b[i][0], b[i][1])
+      ctx.lineTo(b[i+1][0], b[i+1][1])
+      ctx.lineWidth = shapeMoveSel[m] ? 8 :  4
+      switch(m){
+        case 0: ctx.strokeStyle = shapeMoveSel[0] ? '#22fb' : '#22f6'
+        break
+        case 1: ctx.strokeStyle = shapeMoveSel[1] ? '#f22b' : '#f226'
+        break
+        case 2: ctx.strokeStyle = shapeMoveSel[2] ? '#2f8b' : '#2f86'
+        break
+      }
+      ctx.stroke()
+    }
+
+    ctx.lineJoin = ctx.lineCap = 'butt'
+    if(clickReady && shapeMoveSel.filter(v=>v).length &&
+       renderer.mouseButton == 1){
+      clickReady = false
+      shapeMoveInProgress = true
+      omx = mx
+      omy = my
+      flipZ = (camPosZ > az_ ? -1 : 1) * (renderer.pitch <0 ? -1: 1)
+      flipX = (camPosX < ax_ ? -1 : 1) * (renderer.pitch <=0 ? -1: 1)
+      flipY = (camPosY <= ay_ ? -1 : 1) * (renderer.pitch <=0 ? -1: 1)
+    }
+    if(shapeMoveInProgress){
+      document.body.style.cursor = 'none'
+      shapes.filter(v=>v.selected).map(shape => {
+        switch(shapeMoveAxis){
+          case 'x':
+            shape['x'] += (mx-omx) / 200 * flipZ
+          break
+          case 'y':
+            shape['z'] += (mx-omx) / 200 * flipX
+          break
+          case 'z':
+            shape['y'] -= (my-omy) / 200 * flipY
+          break
+        }
+      })
+      omx = mx 
+      omy = my          
+    }
+  }
+}
+
+const ScaleShape = (ar, asMulti = false) => {
+  var res = ComputeGroupCenter(!asMulti)
+  ar = res.ar
+  ax = res.ax
+  ay = res.ay
+  az = res.az
+  ax_ = res.ax_
+  ay_ = res.ay_
+  az_ = res.az_
+  var sd = 16
+  var ls = 25
+  var cx = ar[0]
+  var cy = ar[1]
+  if(!shapeScaleInProgress) {
+    shapeScaleSel = [0,0,0]
+    shapeScaleAxis = ''
+  }
+  var x1, y1, z1, x2, y2, z2
+  x1 = 0
+  y1 = 0
+  z1 = 0
+  for(var m=3; m--;){
+    b = []
+    for(var i = 0; i < sd; i++){
+      switch(m){
+        case 0:
+          x = 0
+          y = -4
+          z = 0
+        break;
+        case 1:
+          x = 4
+          y = 0
+          z = 0
+        break;
+        case 2:
+          x = 0
+          y = 0
+          z = 4
+        break;
+      }
+      x2 = x/4
+      y2 = y/4
+      z2 = z/4
+      p = Math.atan2(x, z) + renderer.yaw
+      d = Math.hypot(x, z)
+      x = S(p) * d
+      z = C(p) * d
+      p = Math.atan2(y, z) + renderer.pitch
+      d = Math.hypot(y, z)
+      y = S(p) * d
+      z = C(p) * d
+      z+=8
+      
+      var x1 = cx
+      var y1 = cy
+      
+      var ls = .5
+      var ar_1 = Coordinates.GetShaderCoord(renderer.offsetX,
+                                            renderer.offsetY,
+                                            renderer.offsetZ, {
+        x: ax_*ls, y: ay_*ls, z: az_*ls, roll: 0, pitch: 0, yaw: 0,
+        }, {
+          x: 0,
+          y: 0,
+          z: renderer.z,
+          roll: 0,
+          pitch: targPitch,
+          yaw: targYaw,
+          cameraMode: '',
+          width: renderer.width,
+          height: renderer.height,
+          offsetX: 0,
+          offsetY: 0,
+          offsetZ: 0,
+          fov: renderer.fov,
+        })
+
+        var ar_2 = Coordinates.GetShaderCoord(renderer.offsetX,
+                                            renderer.offsetY,
+                                            renderer.offsetZ,
+                                            {
+          x: ax_+ x2,
+          y: ay_-y2,
+          z: az_+z2,
+          roll: 0, pitch: 0, yaw: 0,
+        }, {
+          x: 0,
+          y: 0,
+          z: renderer.z,
+          roll: 0,
+          pitch: targPitch,
+          yaw: targYaw,
+          cameraMode: '',
+          width: renderer.width,
+          height: renderer.height,
+          offsetX: 0,
+          offsetY: 0,
+          offsetZ: 0,
+          fov: renderer.fov,
+        })
+
+        d = Math.hypot(x1-ar_2[0], y1-ar_2[1])
+        var d2 = Math.hypot(x/z*200, y/z*200) * (asMulti ? .5 : 1)
+        var x2 = x1 + (ar_2[0]-x1)/d * d2
+        var y2 = y1 + (ar_2[1]-y1)/d * d2
+
+      if(!i){
+        ctx.fillStyle = ctx.strokeStyle
+        switch(m){
+          case 0: ctx.fillStyle = shapeScaleSel[0] ? '#22fb' : '#22f6'
+          break
+          case 1: ctx.fillStyle = shapeScaleSel[1] ? '#f22b' : '#f226'
+          break
+          case 2: ctx.fillStyle = shapeScaleSel[2] ? '#2f8b' : '#2f86'
+          break
+        }
+        ctx.fillRect(x2-10, y2-10, 20, 20)
+      }
+      var x3 = x1 + (x2-x1) / sd * i
+      var y3 = y1 + (y2-y1) / sd * i
+      var ax = 0, ay = 0
+      b.push([ax=x3, ay=y3])
+      ctx.lineTo(x3,y3)
+      x3 = x1 + (x2-x1) / sd * (i+1)
+      y3 = y1 + (y2-y1) / sd * (i+1)
+      ax+=x3, ay+=y3
+      ax/=2
+      ay/=2
+      b.push([x3, y3])
+      ctx.lineWidth = shapeScaleSel[m] ? 8 :  4
+    
+
+      var x3 = x1 + (x2-x1) / sd * i
+      var y3 = y1 + (y2-y1) / sd * i
+      var ax = 0, ay = 0
+      b.push([ax=x3, ay=y3])
+      ctx.lineTo(x3,y3)
+      x3 = x1 + (x2-x1) / sd * (i+1)
+      y3 = y1 + (y2-y1) / sd * (i+1)
+      ax+=x3, ay+=y3
+      ax/=2
+      ay/=2
+      b.push([x3, y3])
+      ctx.lineWidth = shapeScaleSel[m] ? 8 :  4
+      
+      if(!shapeScaleInProgress){
+        if(!shapeScaleSel.filter(v=>v).length &&
+           Math.hypot(mx-ax, my-ay) < 10) {
+          shapeScaleSel[m] = 1
+          switch(m){
+            case 0: shapeScaleAxis = 'z'
+              break
+            case 1: shapeScaleAxis = 'x'
+              break
+            case 2: shapeScaleAxis = 'y'
+              break
+          }
+        }
+      }
+    }
+
+    ctx.lineJoin = ctx.lineCap = 'round'
+    for(var i = 0; i < b.length; i+=2){
+      ctx.beginPath()
+      ctx.lineTo(b[i][0], b[i][1])
+      ctx.lineTo(b[i+1][0], b[i+1][1])
+      ctx.lineWidth = shapeScaleSel[m] ? 8 :  4
+      switch(m){
+        case 0: ctx.strokeStyle = shapeScaleSel[0] ? '#22fb' : '#22f6'
+        break
+        case 1: ctx.strokeStyle = shapeScaleSel[1] ? '#f22b' : '#f226'
+        break
+        case 2: ctx.strokeStyle = shapeScaleSel[2] ? '#2f8b' : '#2f86'
+        break
+      }
+      ctx.stroke()
+    }
+
+    ctx.lineJoin = ctx.lineCap = 'butt'
+    if(clickReady && shapeScaleSel.filter(v=>v).length &&
+       renderer.mouseButton == 1){
+      clickReady = false
+      shapeScaleInProgress = true
+      omx = mx
+      omy = my
+      flipZ = (camPosZ > az_ ? -1 : 1) * (renderer.pitch <0 ? -1: 1)
+      flipX = (camPosX < ax_ ? -1 : 1) * (renderer.pitch <=0 ? -1: 1)
+      flipY = (camPosY <= ay_ ? -1 : 1) * (renderer.pitch <=0 ? -1: 1)
+    }
+    if(shapeScaleInProgress){
+      document.body.style.cursor = 'none'
+      shapes.filter(v=>v.selected).map(shape => {
+        switch(shapeScaleAxis){
+          case 'x':
+            shape.scaleX += (mx-omx) / 200 * flipZ
+          break
+          case 'y':
+            shape.scaleZ += (mx-omx) / 200 * flipX
+          break
+          case 'z':
+            shape.scaleY -= (my-omy) / 200 * flipY
+          break
+        }
+      })
+      omx = mx 
+      omy = my          
+    }
+  }
+}
+
+const RotateShape = (ar, asMulti=false) => {
+
+  var res = ComputeGroupCenter(!asMulti)
+  ar = res.ar
+  ax = res.ax
+  ay = res.ay
+  az = res.az
+  var ax2 = ax
+  var ay2 = ay
+  var az2 = az
+  ax_ = res.ax_
+  ay_ = res.ay_
+  az_ = res.az_
+  var sd = 32
+  var ls = 100
+  var cx = ar[0]
+  var cy = ar[1]
+  /*
+  ctx.beginPath()
+  for(var i = 0; i < sd; i++){
+    a = [S(p=Math.PI*2/sd*i), C(p), 0]
+    x = cx + a[0] * ls
+    y = cy + a[1] * ls
+    ctx.lineTo(x, y)
+  }
+  ctx.lineWidth = 2
+  ctx.closePath()
+  ctx.strokeStyle = '#fff8'
+  ctx.stroke()
+  */
+
+  if(!shapeRotationInProgress) {
+    shapeRotationSel = [0,0,0]
+    shapeRotationAxis = ''
+  }
+  for(var m=3; m--;){
+    b = []
+    e = []
+    for(var i = 0; i < sd; i++){
+      a = [S(p=Math.PI*2/sd*i+Math.PI/2), 0, C(p)]
+      x = a[(m+0)%3]
+      y = a[(m+1)%3]
+      z = a[(m+2)%3]
+      p = Math.atan2(x, z) + renderer.yaw
+      d = Math.hypot(x, z)
+      x = S(p) * d
+      z = C(p) * d
+      p = Math.atan2(y, z) + renderer.pitch
+      d = Math.hypot(y, z)
+      y = S(p) * d
+      z = C(p) * d
+      if(z<.01){
+        e[0] += x
+        e[1] += y
+        e[2] += z
+        var ax = 0
+        var ay = 0
+        z+=200
+        b.push([ax=cx+x/z*ls*1.5*100, ay=cy+y/z*ls*1.5*100])
+        a = [S(p=Math.PI*2/sd*(i+1)+Math.PI/2), 0, C(p)]
+        x = a[(m+0)%3]
+        y = a[(m+1)%3]
+        z = a[(m+2)%3]
+        p = Math.atan2(x, z) + renderer.yaw
+        d = Math.hypot(x, z)
+        x = S(p) * d
+        z = C(p) * d
+        p = Math.atan2(y, z) + renderer.pitch
+        d = Math.hypot(y, z)
+        y = S(p) * d
+        z = C(p) * d
+        e[0] += x
+        e[1] += y
+        e[2] += z
+        z+=200
+        b.push([cx+x/z*ls*1.5*100, cy+y/z*ls*1.5*100])
+        ax+=cx+x/z*ls*1.5*100, ay+=cy+y/z*ls*1.5*100
+        ax/=2
+        ay/=2
+        if(!shapeRotationInProgress){
+          if(!shapeRotationSel.filter(v=>v).length &&
+             Math.hypot(mx-ax, my-ay) < 10) {
+            shapeRotationSel[m] = 1
+            switch(m){
+              case 0: shapeRotationAxis = 'yaw'
+                break
+              case 1: shapeRotationAxis = 'pitch'
+                break
+              case 2: shapeRotationAxis = 'roll'
+                break
+            }
+          }
+        }
+      }
+    }
+    ctx.lineJoin = ctx.lineCap = 'round'
+    for(var i = 0; i < b.length; i+=2){
+      ctx.beginPath()
+      ctx.lineTo(b[i][0], b[i][1])
+      ctx.lineTo(b[i+1][0], b[i+1][1])
+      ctx.lineWidth = shapeRotationSel[m] ? 8 :  4
+      switch(m){
+        case 0: ctx.strokeStyle = shapeRotationSel[0] ? '#22fb' : '#22f6'
+        break
+        case 1: ctx.strokeStyle = shapeRotationSel[1] ? '#f22b' : '#f226'
+        break
+        case 2: ctx.strokeStyle = shapeRotationSel[2] ? '#2f8b' : '#2f86'
+        break
+      }
+      ctx.stroke()
+    }
+
+    ctx.lineJoin = ctx.lineCap = 'butt'
+    if(clickReady && shapeRotationSel.filter(v=>v).length &&
+       renderer.mouseButton == 1){
+      clickReady = false
+      shapeRotationInProgress = true
+      omx = mx
+      omy = my
+      flipZ = (camPosZ <= az2 ? -1 : 1)
+      flipX = (camPosX <= ax2 ? -1 : 1)
+      flipY = (camPosY >= ay2 ? -1 : 1)
+     }
+    if(shapeRotationInProgress){
+      var p1 = Math.atan2(mx-cx, my-cy)
+      var p2 = Math.atan2(omx-cx, omy-cy)
+      if(Math.abs(p1-p2) > Math.PI){
+        p1 += p1 < p2 ? Math.PI*2 : -Math.PI*2
+      }
+
+      var theta = (p1-p2)
+      if(keys[16]){
+        theta = Math.round(theta * 360 / Math.PI / 2 / 5) * 5 / 360 * Math.PI * 2
+      }
+
+      shapes.filter(v=>v.selected).map(shape => {
+        switch(shapeRotationAxis){
+          case 'roll':
+            var theta2 =  theta * flipZ
+            shape[shapeRotationAxis] -= theta2
+            x = shape.x - ax_
+            y = shape.y - ay_
+            z = shape.z - az_
+            p = Math.atan2(x, y) - theta2
+            d = Math.hypot(x, y)
+            x = S(p) * d
+            y = C(p) * d
+          break
+          case 'pitch':
+            var theta2 =  theta * flipX
+            shape[shapeRotationAxis] -= theta2
+            x = shape.x - ax_
+            y = shape.y - ay_
+            z = shape.z - az_
+            p = Math.atan2(y, z) - theta2
+            d = Math.hypot(y, z)
+            y = S(p) * d
+            z = C(p) * d
+          break
+          case 'yaw':
+            var theta2 =  theta * flipY
+            shape[shapeRotationAxis] -= theta2
+            x = shape.x - ax_
+            y = shape.y - ay_
+            z = shape.z - az_
+            p = Math.atan2(x, z) - theta2
+            d = Math.hypot(x, z)
+            x = S(p) * d
+            z = C(p) * d
+          break
+        }
+        shape.x = x + ax_
+        shape.y = y + ay_
+        shape.z = z + az_
+      })
+      omx = mx 
+      omy = my
+    }
+  }
+}
 
 window.Draw = () => {
 
@@ -3263,329 +3901,19 @@ window.Draw = () => {
       }
 
       break
-      
-    case 'scale':
-      var res = ComputeGroupCenter()
-      ar = res.ar
-      ax = res.ax
-      ay = res.ay
-      az = res.az
-      ax_ = res.ax_
-      ay_ = res.ay_
-      az_ = res.az_
-    break
     case 'move':
-      var res = ComputeGroupCenter()
-      ar = res.ar
-      ax = res.ax
-      ay = res.ay
-      az = res.az
-      ax_ = res.ax_
-      ay_ = res.ay_
-      az_ = res.az_
-      var sd = 16
-      var ls = 25
-      var cx = ar[0]
-      var cy = ar[1]
-      if(!shapeMoveInProgress) {
-        shapeMoveSel = [0,0,0]
-        shapeMoveAxis = ''
-      }
-      var x1, y1, z1, x2, y2, z2
-      x1 = 0
-      y1 = 0
-      z1 = 0
-      for(var m=3; m--;){
-        b = []
-        for(var i = 0; i < sd; i++){
-          switch(m){
-            case 0:
-              x = 0
-              y = -4
-              z = 0
-            break;
-            case 1:
-              x = 4
-              y = 0
-              z = 0
-            break;
-            case 2:
-              x = 0
-              y = 0
-              z = 4
-            break;
-          }
-          p = Math.atan2(x, z) + renderer.yaw
-          d = Math.hypot(x, z)
-          x = S(p) * d
-          z = C(p) * d
-          p = Math.atan2(y, z) + renderer.pitch
-          d = Math.hypot(y, z)
-          y = S(p) * d
-          z = C(p) * d
-          z+=8
-          
-          var x1 = cx
-          var y1 = cy
-          var x2 = cx + x/z*200
-          var y2 = cy + y/z*200
-          var x3 = x1 + (x2-x1) / sd * i
-          var y3 = y1 + (y2-y1) / sd * i
-          var ax = 0, ay = 0
-          b.push([ax=x3, ay=y3])
-          ctx.lineTo(x3,y3)
-          x3 = x1 + (x2-x1) / sd * (i+1)
-          y3 = y1 + (y2-y1) / sd * (i+1)
-          ax+=x3, ay+=y3
-          ax/=2
-          ay/=2
-          b.push([x3, y3])
-          ctx.lineWidth = shapeRotationSel[m] ? 8 :  4
-          
-          if(!shapeMoveInProgress){
-            if(!shapeMoveSel.filter(v=>v).length &&
-               Math.hypot(mx-ax, my-ay) < 10) {
-              shapeMoveSel[m] = 1
-              switch(m){
-                case 0: shapeMoveAxis = 'z'
-                  break
-                case 1: shapeMoveAxis = 'x'
-                  break
-                case 2: shapeMoveAxis = 'y'
-                  break
-              }
-            }
-          }
-        }
-
-        ctx.lineJoin = ctx.lineCap = 'round'
-        for(var i = 0; i < b.length; i+=2){
-          ctx.beginPath()
-          ctx.lineTo(b[i][0], b[i][1])
-          ctx.lineTo(b[i+1][0], b[i+1][1])
-          ctx.lineWidth = shapeMoveSel[m] ? 8 :  4
-          switch(m){
-            case 0: ctx.strokeStyle = shapeMoveSel[0] ? '#22fb' : '#22f6'
-            break
-            case 1: ctx.strokeStyle = shapeMoveSel[1] ? '#f22b' : '#f226'
-            break
-            case 2: ctx.strokeStyle = shapeMoveSel[2] ? '#2f8b' : '#2f86'
-            break
-          }
-          ctx.stroke()
-        }
-
-        ctx.lineJoin = ctx.lineCap = 'butt'
-        if(clickReady && shapeMoveSel.filter(v=>v).length &&
-           renderer.mouseButton == 1){
-          clickReady = false
-          shapeMoveInProgress = true
-          omx = mx
-          omy = my
-          flipZ = (camPosZ > az_ ? -1 : 1) * (renderer.pitch <0 ? -1: 1)
-          flipX = (camPosX < ax_ ? -1 : 1) * (renderer.pitch <=0 ? -1: 1)
-          flipY = (camPosY <= ay_ ? -1 : 1) * (renderer.pitch <=0 ? -1: 1)
-        }
-        if(shapeMoveInProgress){
-          document.body.style.cursor = 'none'
-          shapes.filter(v=>v.selected).map(shape => {
-            switch(shapeMoveAxis){
-              case 'x':
-                shape['x'] += (mx-omx) / 200 * flipZ
-              break
-              case 'y':
-                shape['z'] += (mx-omx) / 200 * flipX
-              break
-              case 'z':
-                shape['y'] -= (my-omy) / 200 * flipY
-              break
-            }
-          })
-          omx = mx 
-          omy = my          
-        }
-      }
+      MoveShape(ar)
       break
     case 'rotate':
-      var res = ComputeGroupCenter()
-      ar = res.ar
-      ax = res.ax
-      ay = res.ay
-      az = res.az
-      var ax2 = ax
-      var ay2 = ay
-      var az2 = az
-      ax_ = res.ax_
-      ay_ = res.ay_
-      az_ = res.az_
-      var sd = 32
-      var ls = 100
-      var cx = ar[0]
-      var cy = ar[1]
-      /*
-      ctx.beginPath()
-      for(var i = 0; i < sd; i++){
-        a = [S(p=Math.PI*2/sd*i), C(p), 0]
-        x = cx + a[0] * ls
-        y = cy + a[1] * ls
-        ctx.lineTo(x, y)
-      }
-      ctx.lineWidth = 2
-      ctx.closePath()
-      ctx.strokeStyle = '#fff8'
-      ctx.stroke()
-      */
-
-      if(!shapeRotationInProgress) {
-        shapeRotationSel = [0,0,0]
-        shapeRotationAxis = ''
-      }
-      for(var m=3; m--;){
-        b = []
-        e = []
-        for(var i = 0; i < sd; i++){
-          a = [S(p=Math.PI*2/sd*i+Math.PI/2), 0, C(p)]
-          x = a[(m+0)%3]
-          y = a[(m+1)%3]
-          z = a[(m+2)%3]
-          p = Math.atan2(x, z) + renderer.yaw
-          d = Math.hypot(x, z)
-          x = S(p) * d
-          z = C(p) * d
-          p = Math.atan2(y, z) + renderer.pitch
-          d = Math.hypot(y, z)
-          y = S(p) * d
-          z = C(p) * d
-          if(z<.01){
-            e[0] += x
-            e[1] += y
-            e[2] += z
-            var ax = 0
-            var ay = 0
-            z+=200
-            b.push([ax=cx+x/z*ls*1.5*100, ay=cy+y/z*ls*1.5*100])
-            a = [S(p=Math.PI*2/sd*(i+1)+Math.PI/2), 0, C(p)]
-            x = a[(m+0)%3]
-            y = a[(m+1)%3]
-            z = a[(m+2)%3]
-            p = Math.atan2(x, z) + renderer.yaw
-            d = Math.hypot(x, z)
-            x = S(p) * d
-            z = C(p) * d
-            p = Math.atan2(y, z) + renderer.pitch
-            d = Math.hypot(y, z)
-            y = S(p) * d
-            z = C(p) * d
-            e[0] += x
-            e[1] += y
-            e[2] += z
-            z+=200
-            b.push([cx+x/z*ls*1.5*100, cy+y/z*ls*1.5*100])
-            ax+=cx+x/z*ls*1.5*100, ay+=cy+y/z*ls*1.5*100
-            ax/=2
-            ay/=2
-            if(!shapeRotationInProgress){
-              if(!shapeRotationSel.filter(v=>v).length &&
-                 Math.hypot(mx-ax, my-ay) < 10) {
-                shapeRotationSel[m] = 1
-                switch(m){
-                  case 0: shapeRotationAxis = 'yaw'
-                    break
-                  case 1: shapeRotationAxis = 'pitch'
-                    break
-                  case 2: shapeRotationAxis = 'roll'
-                    break
-                }
-              }
-            }
-          }
-        }
-        ctx.lineJoin = ctx.lineCap = 'round'
-        for(var i = 0; i < b.length; i+=2){
-          ctx.beginPath()
-          ctx.lineTo(b[i][0], b[i][1])
-          ctx.lineTo(b[i+1][0], b[i+1][1])
-          ctx.lineWidth = shapeRotationSel[m] ? 8 :  4
-          switch(m){
-            case 0: ctx.strokeStyle = shapeRotationSel[0] ? '#22fb' : '#22f6'
-            break
-            case 1: ctx.strokeStyle = shapeRotationSel[1] ? '#f22b' : '#f226'
-            break
-            case 2: ctx.strokeStyle = shapeRotationSel[2] ? '#2f8b' : '#2f86'
-            break
-          }
-          ctx.stroke()
-        }
-
-        ctx.lineJoin = ctx.lineCap = 'butt'
-        if(clickReady && shapeRotationSel.filter(v=>v).length &&
-           renderer.mouseButton == 1){
-          clickReady = false
-          shapeRotationInProgress = true
-          omx = mx
-          omy = my
-          flipZ = (camPosZ <= az2 ? -1 : 1)
-          flipX = (camPosX <= ax2 ? -1 : 1)
-          flipY = (camPosY >= ay2 ? -1 : 1)
-         }
-        if(shapeRotationInProgress){
-          var p1 = Math.atan2(mx-cx, my-cy)
-          var p2 = Math.atan2(omx-cx, omy-cy)
-          if(Math.abs(p1-p2) > Math.PI){
-            p1 += p1 < p2 ? Math.PI*2 : -Math.PI*2
-          }
-
-          var theta = (p1-p2)
-          if(keys[16]){
-            theta = Math.round(theta * 360 / Math.PI / 2 / 5) * 5 / 360 * Math.PI * 2
-          }
-
-          shapes.filter(v=>v.selected).map(shape => {
-            switch(shapeRotationAxis){
-              case 'roll':
-                var theta2 =  theta * flipZ
-                shape[shapeRotationAxis] -= theta2
-                x = shape.x - ax_
-                y = shape.y - ay_
-                z = shape.z - az_
-                p = Math.atan2(x, y) - theta2
-                d = Math.hypot(x, y)
-                x = S(p) * d
-                y = C(p) * d
-              break
-              case 'pitch':
-                var theta2 =  theta * flipX
-                shape[shapeRotationAxis] -= theta2
-                x = shape.x - ax_
-                y = shape.y - ay_
-                z = shape.z - az_
-                p = Math.atan2(y, z) - theta2
-                d = Math.hypot(y, z)
-                y = S(p) * d
-                z = C(p) * d
-              break
-              case 'yaw':
-                var theta2 =  theta * flipY
-                shape[shapeRotationAxis] -= theta2
-                x = shape.x - ax_
-                y = shape.y - ay_
-                z = shape.z - az_
-                p = Math.atan2(x, z) - theta2
-                d = Math.hypot(x, z)
-                x = S(p) * d
-                z = C(p) * d
-              break
-            }
-            shape.x = x + ax_
-            shape.y = y + ay_
-            shape.z = z + az_
-          })
-          omx = mx 
-          omy = my
-        }
-      }
+      RotateShape(ar)
       break
-    default:
+    case 'scale':
+      ScaleShape(ar)
+      break
+    case 'multi':
+      MoveShape(ar, true)
+      RotateShape(ar, true)
+      ScaleShape(ar, true)
       break
   }
 
