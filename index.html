@@ -315,6 +315,7 @@ var shapeScaleInProgress = false
 var shapeScaleSel = [0,0,0]
 var shapeScaleAxis = ''
 var backgroundShader = await Coordinates.BasicShader(renderer, shaderOptions)
+var historyBuffer
 
 
 const DrawRotatedImage = (image, x, y, width, height, angle) => { 
@@ -1054,6 +1055,9 @@ const Undo = dir => {
         case 'state change':
           eval(undoItem.undoCommand)
           break
+        case 'shape change':
+          eval(undoItem.undoCommand)
+          break
       }
       break
     case 1:
@@ -1065,10 +1069,15 @@ const Undo = dir => {
         var redoItems = undoItem.redoItems
         switch(undoItem.action){
           case 'delete':
-            eval(redoItem.redoCommand)
+            eval(undoItem.redoCommand)
+            break
+          case 'shape change':
+            console.log(undoItem.redoCommand)
+            console.log(redoItems)
+            eval(undoItem.redoCommand)
             break
           case 'state change':
-            undoItem.redoItems.forEach(item => {
+            redoItems.forEach(item => {
               switch(undoItem.type){
                 case 'bool':
                   eval(undoItem.redoCommand)
@@ -1139,15 +1148,11 @@ const DoKeys = () => {
 
           var action = 'delete', type = 'array'
 
-
           var undoItems   = shapes.filter(v=>v.selected)
           var undoCommand = `undoItems.forEach(v=>{shapes.push(v)})`
           var redoItems   = []
-          shapes.forEach(v=>{ redoItems.push(v) })
-          var redoCommand = `
-                  shapes = []
-                  redoItems.forEach(v => { shapes.push(v) })
-                `
+          shapes.filter(v=>!v.selected).forEach(v=>{ redoItems.push(v) })
+          var redoCommand = `shapes=[]; redoItems.forEach(v => { shapes.push(v) })`
 
           shapes = shapes.filter(v=>!v.selected)
 
@@ -1223,6 +1228,40 @@ window.addEventListener('mouseup', e => {
   gyroIncInProgress = false
   if(shapeScaleInProgress){
     document.body.style.cursor = 'wait'
+    
+    var action = 'shape change'
+    var type = 'scale'
+        
+    var undoItems = structuredClone(historyBuffer.state)
+    var undoCommand = `shapes.filter(v=>v.selected).map((v,i)=>{v['${historyBuffer.shapeScaleAxis}']=undoItems[i]})`
+    if(historyBuffer.shapeScaleAxis == 'xyz'){
+      var undoCommand = `shapes.filter(v=>v.selected).map((v,i)=>{v.scaleX=undoItems[i].scaleX,v.scaleY=undoItems[i].scaleY,v.scaleZ=undoItems[i].scaleZ})`
+    }else{
+      var undoCommand = `shapes.filter(v=>v.selected).map((v,i)=>{v['${historyBuffer.shapeScaleAxis}']=undoItems[i]})`
+    }
+    
+    var state_ = []
+    var redoCommand
+    shapes.filter(v=>v.selected).map(shape => {
+      if(historyBuffer.shapeScaleAxis == 'xyz'){
+        state_.push({
+          scaleX: shape.scaleX,
+          scaleY: shape.scaleY,
+          scaleZ: shape.scaleZ,
+        })
+        redoCommand = `shapes.filter(v=>v.selected).map((v,i)=>{v.scaleX=redoItems[i].scaleX,v.scaleY=redoItems[i].scaleY,v.scaleZ=redoItems[i].scaleZ})`
+      }else{
+        state_.push(shape[historyBuffer.shapeScaleAxis])
+        redoCommand = `shapes.filter(v=>v.selected).map((v,i)=>{v['${historyBuffer.shapeScaleAxis}']=redoItems[i]})`
+      }
+    })
+    var redoItems = structuredClone(state_)
+
+    PushHistory( action, undoCommand, type,
+                undoItems, redoCommand, redoItems  )
+
+
+    
     setTimeout(() => {
       shapeScaleInProgress = false
     }, 0)
@@ -3249,6 +3288,7 @@ const ScaleShape = (ar, asMulti = false) => {
   ctx.beginPath()
   ls = 125
   var hov = false
+  var shapeScaleAxisb
   for(var i = 0; i < 64; i++){
     a = [S(p=Math.PI*2/64*i), C(p), 0]
     x = cx + a[0] * ls
@@ -3264,6 +3304,19 @@ const ScaleShape = (ar, asMulti = false) => {
     shapeScaleAxis = 'xyz'
     omx = mx
     omy = my
+    
+    var state = []
+    shapes.filter(v=>v.selected).map(shape => {
+      state.push({
+        scaleX: shape.scaleX,
+        scaleY: shape.scaleY,
+        scaleZ: shape.scaleZ,
+      })
+    })
+    historyBuffer = {
+      shapeScaleAxis,
+      state,
+    }
   }
   ctx.closePath()
   ctx.strokeStyle = '#fff4'
@@ -3272,7 +3325,7 @@ const ScaleShape = (ar, asMulti = false) => {
   ctx.lineWidth /= 4
   ctx.strokeStyle = '#fff8'
   ctx.stroke()
-
+  
   for(var m=3; m--;){
     b = []
     for(var i = 0; i < sd; i++){
@@ -3406,11 +3459,17 @@ const ScaleShape = (ar, asMulti = false) => {
            Math.hypot(mx-ax, my-ay) < 10) {
           shapeScaleSel[m] = 1
           switch(m){
-            case 0: shapeScaleAxis = 'z'
+            case 0:
+              shapeScaleAxis = 'scaleZ'
+              shapeScaleAxisb = 'scaleY'
               break
-            case 1: shapeScaleAxis = 'x'
+            case 1:
+              shapeScaleAxis = 'scaleX'
+              shapeScaleAxisb = 'scaleX'
               break
-            case 2: shapeScaleAxis = 'y'
+            case 2:
+              shapeScaleAxis = 'scaleY'
+              shapeScaleAxisb = 'scaleZ'
               break
           }
         }
@@ -3446,19 +3505,28 @@ const ScaleShape = (ar, asMulti = false) => {
       flipZ = (camPosZ > az_ ? -1 : 1) * (renderer.pitch <0 ? -1: 1)
       flipX = (camPosX < ax_ ? -1 : 1) * (renderer.pitch <=0 ? -1: 1)
       flipY = (camPosY <= ay_ ? -1 : 1) * (renderer.pitch <=0 ? -1: 1)
+      
+      var state = []
+      shapes.filter(v=>v.selected).map(shape => {
+        state.push(shape[shapeScaleAxisb])
+      })
+      historyBuffer = {
+        shapeScaleAxis: shapeScaleAxisb,
+        state,
+      }
     }
     if(shapeScaleInProgress){
       shapes.filter(v=>v.selected).map(shape => {
         switch(shapeScaleAxis){
-          case 'x':
+          case 'scaleX':
             document.body.style.cursor = 'none'
             shape.scaleX += (mx-omx) / 200 * flipZ
           break
-          case 'y':
+          case 'scaleY':
             document.body.style.cursor = 'none'
             shape.scaleZ += (mx-omx) / 200 * flipX
           break
-          case 'z':
+          case 'scaleZ':
             document.body.style.cursor = 'none'
             shape.scaleY += (omy-my) / 200 * flipY
           break
@@ -3608,6 +3676,14 @@ const RotateShape = (ar, asMulti=false) => {
        renderer.mouseButton == 1){
       clickReady = false
       shapeRotationInProgress = true
+      var state = []
+      shapes.filter(v=>v.selected).map(shape => {
+        state.push(shape[shapeRotationAxis])
+      })
+      historyBuffer = {
+        shapeRotationAxis,
+        state,
+      }
       omx = mx
       omy = my
       flipZ = (camPosZ <= az2 ? -1 : 1)
