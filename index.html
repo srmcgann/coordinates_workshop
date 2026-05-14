@@ -2808,9 +2808,9 @@ const LoadSceneShape = async (url, shapeType, map='', replace=true,
     map,
     sphereize,
     subs,
-    x: (Rn() - .5) * 0,
+    x: (Rn() - .5) * 4,
     y: 0,
-    z: (Rn() - .5) * 0,
+    z: (Rn() - .5) * 4,
     name: 'scene shape',
     //showNormals: true,
     scaleX: .5,
@@ -2976,6 +2976,46 @@ const ComputeGroupCenter = (draw=true) => {
 }
 
 var ax, ay, az, ax_, ay_, az_
+
+const SelectShape = (ar, asMulti = false) => {
+  if(clickReady && renderer.mouseButton == 1){
+    clickReady = false
+    marquisInProgress = true
+    marquisLeft = mx
+    marquisTop = my
+    curSel = []
+    shapes.forEach((v, i) => {
+      curSel.push({
+        hash: v.hash,
+        selected: v.selected
+      })
+    })
+  }
+  if(marquisInProgress){
+    ctx.strokeStyle = '#2f8a'
+    ctx.lineWidth = 2
+    ctx.setLineDash([5, 5])
+    ctx.strokeRect(a = marquisLeft, b = marquisTop,
+                   mx-marquisLeft, my-marquisTop)
+    d = mx, e = my
+    var temp
+    if(d < a){
+      temp = a
+      a = d
+      d = temp
+    }
+    if(e < b){
+      temp = b
+      b = e
+      e = temp
+    }
+    shapes.filter(v=>v.name == 'scene shape').map((v, i) => {
+      v.selected = v.cx > a && v.cx < d && v.cy > b && v.cy < e
+    })
+
+    ctx.setLineDash([])
+  }
+}
 
 const MoveShape = (ar, asMulti = false) => {
  var res = ComputeGroupCenter(!asMulti)
@@ -3744,7 +3784,7 @@ window.Draw = () => {
                 ctx.fillRect(ar[0]-s/4, ar[1]-s/4,s/2,s/2)
               }
               break
-            case 'move': case 'rotate':
+            case 'move': case 'rotate': case 'scale': case 'multi':
               if(shape.selected && !shapeRotationInProgress &&
                  !moveInProgress){
                 ctx.fillStyle = '#0008'
@@ -3862,58 +3902,25 @@ window.Draw = () => {
   var ax, ay, az, ax_, ay_, az_, ar
   switch(curTool){
     case 'select':
-      if(clickReady && renderer.mouseButton == 1){
-        clickReady = false
-        marquisInProgress = true
-        marquisLeft = mx
-        marquisTop = my
-        curSel = []
-        shapes.forEach((v, i) => {
-          curSel.push({
-            hash: v.hash,
-            selected: v.selected
-          })
-        })
-      }
-      if(marquisInProgress){
-        ctx.strokeStyle = '#2f8a'
-        ctx.lineWidth = 2
-        ctx.setLineDash([5, 5])
-        ctx.strokeRect(a = marquisLeft, b = marquisTop,
-                       mx-marquisLeft, my-marquisTop)
-        d = mx, e = my
-        var temp
-        if(d < a){
-          temp = a
-          a = d
-          d = temp
-        }
-        if(e < b){
-          temp = b
-          b = e
-          e = temp
-        }
-        shapes.filter(v=>v.name == 'scene shape').map((v, i) => {
-          v.selected = v.cx > a && v.cx < d && v.cy > b && v.cy < e
-        })
-
-        ctx.setLineDash([])
-      }
-
+      SelectShape(ar)
       break
     case 'move':
       MoveShape(ar)
+      SelectShape(ar)
       break
     case 'rotate':
       RotateShape(ar)
+      SelectShape(ar)
       break
     case 'scale':
       ScaleShape(ar)
+      SelectShape(ar)
       break
     case 'multi':
       MoveShape(ar, true)
       RotateShape(ar, true)
       ScaleShape(ar, true)
+      SelectShape(ar)
       break
   }
 
