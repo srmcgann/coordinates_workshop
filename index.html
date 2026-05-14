@@ -3453,20 +3453,14 @@ const ScaleShape = (ar, asMulti = false) => {
           case 'x':
             document.body.style.cursor = 'none'
             shape.scaleX += (mx-omx) / 200 * flipZ
-            omx = mx
-            omy = my
           break
           case 'y':
             document.body.style.cursor = 'none'
             shape.scaleZ += (mx-omx) / 200 * flipX
-            omx = mx
-            omy = my
           break
           case 'z':
             document.body.style.cursor = 'none'
             shape.scaleY += (omy-my) / 200 * flipY
-            omx = mx
-            omy = my
           break
           case 'xyz':
             document.body.style.cursor = 'crosshair'
@@ -3476,11 +3470,23 @@ const ScaleShape = (ar, asMulti = false) => {
             shape.scaleX *= d
             shape.scaleY *= d
             shape.scaleZ *= d
-            omx = mx
-            omy = my
+            // to-do: scale positions for shapes, w/shapes
+            // when grouped
+            /*var vx = shape.x - ax_
+            var vy = shape.y - ay_
+            var vz = shape.z - az_
+            vx *= d
+            vy *= d
+            vz *= d
+            shape.x = vx + ax_
+            shape.y = vy + ay_
+            shape.z = vz + az_
+            */
           break
         }
       })
+      omx = mx
+      omy = my
     }
   }
 }
