@@ -213,8 +213,8 @@ var displayProperties = {
 }
 
 import * as Coordinates from
-"https://srmcgann.github.io/Coordinates/coordinates.min.js"
-//"https://cantelope42.github.io/tempppp/coordinates.js?2"
+"https://cantelope42.github.io/tempppp/coordinates.js?2"
+//"https://srmcgann.github.io/Coordinates/coordinates.min.js"
 
 var rendererOptions = {
   ambientLight: .5, margin: 0, clearColor: 0x404040,
@@ -1121,6 +1121,10 @@ const DoKeys = () => {
         case 32:
           keyTimers[keyCode] = renderer.t + keyTimerInterval
           break
+        case 70: // f
+          FlipNormals()
+          keyTimers[keyCode] = renderer.t + keyTimerInterval
+          break
         case 89: // y
           if(keys[17]){ // ctrl y
             Undo(1)
@@ -1300,7 +1304,6 @@ window.addEventListener('mouseup', e => {
     // undo/redo maintenance
     var action = 'shape change'
     var type = 'rotation'
-    console.log('hm', historyBuffer)
     var undoItems = structuredClone(historyBuffer.state)
     if(historyBuffer.shapeRotationAxis == 'xyz'){
       var undoCommand = `shapes.filter(v=>v.selected).map((v,i)=>{v.quatAxis[0]=undoItems[i].quatAxis[0],v.quatAxis[1]=undoItems[i].quatAxis[1],v.quatAxis[2]=undoItems[i].quatAxis[2]})`
@@ -1308,8 +1311,13 @@ window.addEventListener('mouseup', e => {
       var undoCommand = `shapes.filter(v=>v.selected).map((v,i)=>{v['${historyBuffer.shapeRotationAxis}']=undoItems[i].shapeRotationAxis})`
     }
     
-    shapes.filter(v=>v.selected).map(shape=>Coordinates.ApplyRotation(shape))
-    
+    shapes.filter(v=>v.selected).map(shape =>{
+      //shape.yaw = 0
+      //shape.pitch = 0
+      //shape.roll = 0
+      Coordinates.ApplyRotation(shape)
+    })
+
     var state_ = []
     var redoCommand
     shapes.filter(v=>v.selected).map(shape => {
@@ -1600,12 +1608,18 @@ const InitMenus = () => {
 
 
   
-  el2 = PushMenuItem(root, 'apply')
-  PushMenuItem(el2, 'location', `shapes.filter(v=>v.selected).map(v=>Coordinates.ApplyLocation(v))`)
-  PushMenuItem(el2, 'scale', `shapes.filter(v=>v.selected).map(v=>Coordinates.ApplyScale(v))`)
-  PushMenuItem(el2, 'rotation', `shapes.filter(v=>v.selected).map(v=>Coordinates.ApplyRotation(v))`)
+  el2 = PushMenuItem(root, 'object')
+  PushMenuItem(el2, 'flip normals', `FlipNormals()`)
+  var el3 = PushMenuItem(el2, 'apply', ``)
+  PushMenuItem(el3, 'location', `shapes.filter(v=>v.selected).map(v=>Coordinates.ApplyLocation(v))`)
+  PushMenuItem(el3, 'scale', `shapes.filter(v=>v.selected).map(v=>Coordinates.ApplyScale(v))`)
+  PushMenuItem(el3, 'rotation', `shapes.filter(v=>v.selected).map(v=>Coordinates.ApplyRotation(v))`)
 
-  PushMenuItem(el2, 'flip normals', `shapes.filter(v=>v.selected).map(v=>Coordinates.FlipNormals(v))`)
+  var el3 = PushMenuItem(el2, 'clear', ``)
+  PushMenuItem(el3, 'location', `shapes.filter(v=>v.selected).map(v=>Coordinates.ClearLocation(v))`)
+  PushMenuItem(el3, 'scale', `shapes.filter(v=>v.selected).map(v=>Coordinates.ClearScale(v))`)
+  PushMenuItem(el3, 'rotation', `shapes.filter(v=>v.selected).map(v=>Coordinates.ClearRotation(v))`)
+
 
 
   el2 = PushMenuItem(root, 'set origin')
@@ -1795,6 +1809,10 @@ assets.map((asset, aIdx) => {
     asset.resource.src = URL.createObjectURL(data)
   })
 })
+
+const FlipNormals = () => {
+  shapes.filter(v=>v.selected).map(v=>Coordinates.FlipNormals(v))
+}
 
 const DrawGyroscope = () => {
   if(hovering) return
@@ -2906,7 +2924,7 @@ const LoadSceneShape = async (url, shapeType, map='', replace=true,
     y: 0,
     z: (Rn() - .5) * 0,
     name: 'scene shape',
-    //showNormals: true,
+    showNormals: false,
     scaleX: .5,
     scaleY: .5,
     scaleZ: .5,
@@ -2914,7 +2932,7 @@ const LoadSceneShape = async (url, shapeType, map='', replace=true,
     color: 0xffffff,
     colorMix: map?0:.25,
     averageNormals,
-    rotationMode: 2,    
+    rotationMode: 2,
     //involveCache: false,
     //rebindTextures: !!newRefTexture,
   }
@@ -3011,7 +3029,8 @@ var clickReady = true
 
 await ClearAll()
 await SetSkybox(greyPixel)
-await LoadSceneShape ('', 'cube', '', false, 1, 0)
+//await LoadSceneShape ('', 'cube', '', false, 1, 0)
+await LoadSceneShape ('https://srmcgann.github.io/objs/callibration_tool.obj', 'obj', '', false, 1, 0)
 setTimeout(() => {
   //axisAligned = 'Z'
 }, 0)
@@ -3670,10 +3689,11 @@ const RotateShape = (ar, asMulti=false) => {
     omy = my
     
     shapes.filter(v=>v.selected).map(shape => {
-      Coordinates.ApplyRotation(shape)
-      shape.quatAxis[1] += renderer.pitch
-      shape.quatAxis[2] -= renderer.yaw
-      Coordinates.ApplyRotation(shape)
+      //shape.quatAxis[1] += renderer.pitch
+      //shape.quatAxis[2] -= renderer.yaw
+      shape.pitch -= renderer.pitch
+      shape.yaw += renderer.yaw
+      Coordinates.ApplyRotation(shape, false)
     })
     
     
@@ -3840,11 +3860,11 @@ const RotateShape = (ar, asMulti=false) => {
             var p1 = renderer.yaw
             var p2 = -renderer.pitch
             document.body.style.cursor = 'crosshair'
-            d = (Math.hypot(cx-omx, cy-omy)-
-                Math.hypot(cx-mx, cy-my))/200
+            d = (Math.atan2(cx-omx, cy-omy)-
+                Math.atan2(cx-mx, cy-my))
             shape.quatAxis[0] += d
-            shape.quatAxis[1] = p2
-            shape.quatAxis[2] = p1
+            shape.quatAxis[1] = p2 //- renderer.pitch
+            shape.quatAxis[2] = p1 //+ renderer.yaw
             x = shape.x - ax_
             y = shape.y - ay_
             z = shape.z - az_
