@@ -213,8 +213,8 @@ var displayProperties = {
 }
 
 import * as Coordinates from
-"https://cantelope42.github.io/tempppp/coordinates.js?2"
-//"https://srmcgann.github.io/Coordinates/coordinates.min.js"
+"https://srmcgann.github.io/Coordinates/coordinates.min.js"
+//"https://cantelope42.github.io/tempppp/coordinates.js?2"
 
 var rendererOptions = {
   ambientLight: .5, margin: 0, clearColor: 0x404040,
@@ -3266,7 +3266,7 @@ const MoveShape = (ar, asMulti = false) => {
           }
         }
       }
-      if(i==sd-1){
+      if(i==sd-1 && x2 >5 && y2 > 5){
         p = Math.atan2(x2-x1, y2-y1) + Math.PI
         DrawRotatedImage(arrowhead, x2, y2,
                          hl?25:20, hl?25:20, p)
