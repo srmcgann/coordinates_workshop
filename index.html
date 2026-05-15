@@ -213,8 +213,8 @@ var displayProperties = {
 }
 
 import * as Coordinates from
-"https://srmcgann.github.io/Coordinates/coordinates.min.js"
-//"https://cantelope42.github.io/tempppp/coordinates.js?2"
+"https://cantelope42.github.io/tempppp/coordinates.js?2"
+//"https://srmcgann.github.io/Coordinates/coordinates.min.js"
 
 var rendererOptions = {
   ambientLight: .5, margin: 0, clearColor: 0x404040,
@@ -1056,6 +1056,7 @@ const Undo = dir => {
           eval(undoItem.undoCommand)
           break
         case 'shape change':
+          console.log(shapes)
           eval(undoItem.undoCommand)
           break
       }
@@ -1229,17 +1230,15 @@ window.addEventListener('mouseup', e => {
   if(shapeScaleInProgress){
     document.body.style.cursor = 'wait'
     
+    // undo/redo maintenance
     var action = 'shape change'
     var type = 'scale'
-        
     var undoItems = structuredClone(historyBuffer.state)
-    var undoCommand = `shapes.filter(v=>v.selected).map((v,i)=>{v['${historyBuffer.shapeScaleAxis}']=undoItems[i]})`
     if(historyBuffer.shapeScaleAxis == 'xyz'){
       var undoCommand = `shapes.filter(v=>v.selected).map((v,i)=>{v.scaleX=undoItems[i].scaleX,v.scaleY=undoItems[i].scaleY,v.scaleZ=undoItems[i].scaleZ})`
     }else{
       var undoCommand = `shapes.filter(v=>v.selected).map((v,i)=>{v['${historyBuffer.shapeScaleAxis}']=undoItems[i]})`
     }
-    
     var state_ = []
     var redoCommand
     shapes.filter(v=>v.selected).map(shape => {
@@ -1259,8 +1258,7 @@ window.addEventListener('mouseup', e => {
 
     PushHistory( action, undoCommand, type,
                 undoItems, redoCommand, redoItems  )
-
-
+    ///////
     
     setTimeout(() => {
       shapeScaleInProgress = false
@@ -1268,17 +1266,70 @@ window.addEventListener('mouseup', e => {
   }
   if(shapeMoveInProgress){
     document.body.style.cursor = 'wait'
+    
+    // undo/redo maintenance
+    var action = 'shape change'
+    var type = 'move'
+    var undoItems = structuredClone(historyBuffer.state)
+    var undoCommand = `shapes.filter(v=>v.selected).map((v,i)=>{v['${historyBuffer.shapeMoveAxis}']=undoItems[i]})`
+    if(historyBuffer.shapeMoveAxis == 'xyz'){
+      var undoCommand = `shapes.filter(v=>v.selected).map((v,i)=>{v.x=undoItems[i].x,v.y=undoItems[i].y,v.z=undoItems[i].z})`
+    }else{
+      var undoCommand = `shapes.filter(v=>v.selected).map((v,i)=>{v['${historyBuffer.shapeMoveAxis}']=undoItems[i]})`
+    }
+    var state_ = []
+    var redoCommand
+    shapes.filter(v=>v.selected).map(shape => {
+      state_.push(shape[historyBuffer.shapeMoveAxis])
+      redoCommand = `shapes.filter(v=>v.selected).map((v,i)=>{v['${historyBuffer.shapeMoveAxis}']=redoItems[i]})`
+    })
+    var redoItems = structuredClone(state_)
+
+    PushHistory( action, undoCommand, type,
+                undoItems, redoCommand, redoItems  )
+    ///////
+
+    
     setTimeout(() => {
       shapeMoveInProgress = false
     }, 0)
   }
   if(shapeRotationInProgress){
     document.body.style.cursor = 'wait'
+    
+    // undo/redo maintenance
+    var action = 'shape change'
+    var type = 'rotation'
+    console.log('hm', historyBuffer)
+    var undoItems = structuredClone(historyBuffer.state)
+    if(historyBuffer.shapeRotationAxis == 'xyz'){
+      var undoCommand = `shapes.filter(v=>v.selected).map((v,i)=>{v.quatAxis[0]=undoItems[i].quatAxis[0],v.quatAxis[1]=undoItems[i].quatAxis[1],v.quatAxis[2]=undoItems[i].quatAxis[2]})`
+    }else{
+      var undoCommand = `shapes.filter(v=>v.selected).map((v,i)=>{v['${historyBuffer.shapeRotationAxis}']=undoItems[i].shapeRotationAxis})`
+    }
+    
+    shapes.filter(v=>v.selected).map(shape=>Coordinates.ApplyRotation(shape))
+    
+    var state_ = []
+    var redoCommand
+    shapes.filter(v=>v.selected).map(shape => {
+      if(historyBuffer.shapeRotationAxis == 'xyz'){
+        state_.push({
+          quatAxis: structuredClone(shape.quatAxis),
+        })
+        redoCommand = `shapes.filter(v=>v.selected).map((v,i)=>{v.quatAxis[0]=redoItems[i].quatAxis[0],v.quatAxis[1]=redoItems[i].quatAxis[1],v.quatAxis[2]=redoItems[i].quatAxis[2]})`
+      }else{
+        state_.push(shape[historyBuffer.shapeRotationAxis])
+        redoCommand = `shapes.filter(v=>v.selected).map((v,i)=>{v['${historyBuffer.shapeRotationAxis}']=redoItems[i].shapeRotationAxis})`
+      }
+    })
+    var redoItems = structuredClone(state_)
+
+    PushHistory( action, undoCommand, type,
+                undoItems, redoCommand, redoItems  )
+    ///////
+    
     setTimeout(() => {
-      shapes.filter(v=>v.name=='scene shape').map( shape => {
-        Coordinates.ApplyScale(shape)
-        Coordinates.ApplyRotation(shape)
-      })
       shapeRotationInProgress = false
     }, 0)
   }
@@ -1473,25 +1524,29 @@ const ClearAll = async () => {
   targX = renderer.offsetX = 0
   targY = renderer.offsetY = 0
   targZ = renderer.offsetZ = 0
-  targD = renderer.z = 2.1
+  targD = renderer.z = 1.5
   axisAligned = ''
   renderer.x = 0
   renderer.y = 0
-  targYaw = renderer.yaw = .2
-  targPitch = renderer.pitch = -.2
+  targYaw = renderer.yaw = .6
+  targPitch = renderer.pitch = -.4
   shapes = shapes.filter(shape => shape.name != 'scene shape')
   await ClearSkybox()
 }
 
 const InitMenus = () => {
+  var el2, el3
   root = PushMenuItem(menus, 'root')
   PushMenuItem(root, 'File')
-  //PushMenuItem(root, 'Edit')
+  PushMenuItem(root, 'Edit')
   //PushMenuItem(root, 'Config')
   PushMenuItem(root, 'Help')
 
+  var el = FetchMenuItemByName('Edit', menus)
+  PushMenuItem(el, 'undo [ctrl+z]', `Undo(-1)`)
+  PushMenuItem(el, 'redo [ctrl+y]', `Undo(1)`)
+  
   var el = FetchMenuItemByName('File', menus)
-  var el2, el3
   el2 = PushMenuItem(el, 'new scene', `(async ()=>{await ClearAll()})()`)
   el2 = PushMenuItem(el, 'load resource as new workspace')
   PushMenuItem(el2, 'obj', `Import('obj')`)
@@ -2859,6 +2914,7 @@ const LoadSceneShape = async (url, shapeType, map='', replace=true,
     color: 0xffffff,
     colorMix: map?0:.25,
     averageNormals,
+    rotationMode: 2,    
     //involveCache: false,
     //rebindTextures: !!newRefTexture,
   }
@@ -3074,6 +3130,7 @@ const MoveShape = (ar, asMulti = false) => {
     shapeMoveAxis = ''
   }
   var x1, y1, z1, x2, y2, z2, arrowhead
+  var shapeMoveAxisb
   x1 = 0
   y1 = 0
   z1 = 0
@@ -3193,14 +3250,17 @@ const MoveShape = (ar, asMulti = false) => {
           switch(m){
             case 0:
               shapeMoveAxis = 'z'
+              shapeMoveAxisb = 'y'
               hl=true
               break
             case 1:
               shapeMoveAxis = 'x'
+              shapeMoveAxisb = 'x'
               hl=true
               break
             case 2:
               shapeMoveAxis = 'y'
+              shapeMoveAxisb = 'z'
               hl=true
               break
           }
@@ -3240,6 +3300,15 @@ const MoveShape = (ar, asMulti = false) => {
       flipZ = (camPosZ > az_ ? -1 : 1) * (renderer.pitch <0 ? -1: 1)
       flipX = (camPosX < ax_ ? -1 : 1) * (renderer.pitch <=0 ? -1: 1)
       flipY = (camPosY <= ay_ ? -1 : 1) * (renderer.pitch <=0 ? -1: 1)
+      
+      var state = []
+      shapes.filter(v=>v.selected).map(shape => {
+        state.push(shape[shapeMoveAxisb])
+      })
+      historyBuffer = {
+        shapeMoveAxis: shapeMoveAxisb,
+        state,
+      }
     }
     if(shapeMoveInProgress){
       document.body.style.cursor = 'none'
@@ -3284,47 +3353,48 @@ const ScaleShape = (ar, asMulti = false) => {
   y1 = 0
   z1 = 0
 
-
-  ctx.beginPath()
-  ls = 125
-  var hov = false
-  var shapeScaleAxisb
-  for(var i = 0; i < 64; i++){
-    a = [S(p=Math.PI*2/64*i), C(p), 0]
-    x = cx + a[0] * ls
-    y = cy + a[1] * ls
-    ctx.lineTo(x, y)
-    if(Math.hypot(x-mx, y-my) < 8) hov = true
-  }
-  if(!shapeScaleInProgress &&
-     clickReady && hov &&
-     renderer.mouseButton == 1){
-    clickReady = false
-    shapeScaleInProgress = true
-    shapeScaleAxis = 'xyz'
-    omx = mx
-    omy = my
-    
-    var state = []
-    shapes.filter(v=>v.selected).map(shape => {
-      state.push({
-        scaleX: shape.scaleX,
-        scaleY: shape.scaleY,
-        scaleZ: shape.scaleZ,
-      })
-    })
-    historyBuffer = {
-      shapeScaleAxis,
-      state,
+  if(!asMulti){
+    ctx.beginPath()
+    ls = 125
+    var hov = false
+    var shapeScaleAxisb
+    for(var i = 0; i < 64; i++){
+      a = [S(p=Math.PI*2/64*i), C(p), 0]
+      x = cx + a[0] * ls
+      y = cy + a[1] * ls
+      ctx.lineTo(x, y)
+      if(Math.hypot(x-mx, y-my) < 8) hov = true
     }
+    if(!shapeScaleInProgress &&
+       clickReady && hov &&
+       renderer.mouseButton == 1){
+      clickReady = false
+      shapeScaleInProgress = true
+      shapeScaleAxis = 'xyz'
+      omx = mx
+      omy = my
+      
+      var state = []
+      shapes.filter(v=>v.selected).map(shape => {
+        state.push({
+          scaleX: shape.scaleX,
+          scaleY: shape.scaleY,
+          scaleZ: shape.scaleZ,
+        })
+      })
+      historyBuffer = {
+        shapeScaleAxis,
+        state,
+      }
+    }
+    ctx.closePath()
+    ctx.strokeStyle = '#fff4'
+    ctx.lineWidth = 6 * (hov ? 2 : 1)
+    ctx.stroke()
+    ctx.lineWidth /= 4
+    ctx.strokeStyle = '#fff8'
+    ctx.stroke()
   }
-  ctx.closePath()
-  ctx.strokeStyle = '#fff4'
-  ctx.lineWidth = 6 * (hov ? 2 : 1)
-  ctx.stroke()
-  ctx.lineWidth /= 4
-  ctx.strokeStyle = '#fff8'
-  ctx.stroke()
   
   for(var m=3; m--;){
     b = []
@@ -3532,12 +3602,13 @@ const ScaleShape = (ar, asMulti = false) => {
           break
           case 'xyz':
             document.body.style.cursor = 'crosshair'
-            d = 
             d = 1 - (Math.hypot(cx-omx, cy-omy)-
                 Math.hypot(cx-mx, cy-my))/200
             shape.scaleX *= d
             shape.scaleY *= d
             shape.scaleZ *= d
+            
+            
             // to-do: scale positions for shapes, w/shapes
             // when grouped
             /*var vx = shape.x - ax_
@@ -3576,20 +3647,56 @@ const RotateShape = (ar, asMulti=false) => {
   var ls = 100
   var cx = ar[0]
   var cy = ar[1]
-  /*
+  
+  
   ctx.beginPath()
-  for(var i = 0; i < sd; i++){
-    a = [S(p=Math.PI*2/sd*i), C(p), 0]
+  ls = 125
+  var hov = false
+  var shapeRotationAxisb
+  for(var i = 0; i < 64; i++){
+    a = [S(p=Math.PI*2/64*i), C(p), 0]
     x = cx + a[0] * ls
     y = cy + a[1] * ls
     ctx.lineTo(x, y)
+    if(Math.hypot(x-mx, y-my) < 8) hov = true
   }
-  ctx.lineWidth = 2
+  if(!shapeRotationInProgress &&
+     clickReady && hov &&
+     renderer.mouseButton == 1){
+    clickReady = false
+    shapeRotationInProgress = true
+    shapeRotationAxis = 'xyz'
+    omx = mx
+    omy = my
+    
+    shapes.filter(v=>v.selected).map(shape => {
+      Coordinates.ApplyRotation(shape)
+      shape.quatAxis[1] += renderer.pitch
+      shape.quatAxis[2] -= renderer.yaw
+      Coordinates.ApplyRotation(shape)
+    })
+    
+    
+    var state = []
+    shapes.filter(v=>v.selected).map(shape => {
+      state.push({
+        quatAxis: structuredClone(shape.quatAxis),
+      })
+    })
+    historyBuffer = {
+      shapeRotationAxis,
+      state,
+    }
+  }
   ctx.closePath()
+  ctx.strokeStyle = '#fff4'
+  ctx.lineWidth = 6 * (hov ? 2 : 1)
+  ctx.stroke()
+  ctx.lineWidth /= 4
   ctx.strokeStyle = '#fff8'
   ctx.stroke()
-  */
-
+  
+  
   if(!shapeRotationInProgress) {
     shapeRotationSel = [0,0,0]
     shapeRotationAxis = ''
@@ -3676,14 +3783,6 @@ const RotateShape = (ar, asMulti=false) => {
        renderer.mouseButton == 1){
       clickReady = false
       shapeRotationInProgress = true
-      var state = []
-      shapes.filter(v=>v.selected).map(shape => {
-        state.push(shape[shapeRotationAxis])
-      })
-      historyBuffer = {
-        shapeRotationAxis,
-        state,
-      }
       omx = mx
       omy = my
       flipZ = (camPosZ <= az2 ? -1 : 1)
@@ -3737,11 +3836,42 @@ const RotateShape = (ar, asMulti=false) => {
             x = S(p) * d
             z = C(p) * d
           break
+          case 'xyz':
+            var p1 = renderer.yaw
+            var p2 = -renderer.pitch
+            document.body.style.cursor = 'crosshair'
+            d = (Math.hypot(cx-omx, cy-omy)-
+                Math.hypot(cx-mx, cy-my))/200
+            shape.quatAxis[0] += d
+            shape.quatAxis[1] = p2
+            shape.quatAxis[2] = p1
+            x = shape.x - ax_
+            y = shape.y - ay_
+            z = shape.z - az_
+            var res = Coordinates.Quat([x,y,z], shape.quatAxis)
+            x = res[0]
+            y = res[1]
+            z = res[2]
+          break
         }
         shape.x = x + ax_
         shape.y = y + ay_
         shape.z = z + az_
       })
+      if(shapeRotationAxis != 'xyz'){
+        var state = []
+        shapes.filter(v=>v.selected).map(shape => {
+          state.push({
+          x: shape.x, y: shape.y, z: shape.z, 
+          shapeRotationAxis,
+          theta: -shape[shapeRotationAxis],
+          })
+        })
+        historyBuffer = {
+          shapeRotationAxis,
+          state,
+        }
+      }
       omx = mx 
       omy = my
     }
